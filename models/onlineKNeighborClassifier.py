@@ -1,12 +1,14 @@
 from sklearn.neighbors import NearestNeighbors
-import numpy as np
-import math
 from typing import List
+import math
+
+MULTIPLIER_DENOMINATOR = 5
 
 class OnlineKNeighborClassifier:
     def __init__(self, windowSize: int, nNeighbors: int, penalty: int):
         self.windowSize = windowSize
         self.nNeighbors = nNeighbors + 1
+        #The larger the number the greater the penalty
         self.penalty = penalty
         self.userProfiles:List[int] = []
         self.itemRatings = []
@@ -55,6 +57,12 @@ class OnlineKNeighborClassifier:
         sortedItems = sorted(totalRatings.items(), key=lambda x: x[1], reverse=True)
         reccomendedItems = [itemId for itemId, _ in sortedItems[:itemAmount]]
         return reccomendedItems
+    
+    def userInModel(self,userId:int) -> bool:
+        if [userId] in self.userProfiles and len(self.itemRatings[self.userProfiles.index([userId])].keys()) > 10:
+            return True
+        else:
+            return False
 
     def distance(self, user1, user2):
         totalRatingDistance = 0
@@ -62,10 +70,13 @@ class OnlineKNeighborClassifier:
         user2Index = self.userProfiles.index(user2)
         user2Keys = 0
 
-        for key in self.itemRatings[user1Index].keys():
+        multiplier = len(self.itemRatings[user1Index].keys())/MULTIPLIER_DENOMINATOR
+
+        for key in reversed(self.itemRatings[user1Index].keys()):
             if key in self.itemRatings[user2Index].keys():
                 user2Keys += 1
-                totalRatingDistance += pow((self.itemRatings[user1Index][key] - self.itemRatings[user2Index][key]),2)
+                totalRatingDistance += pow(multiplier * (self.itemRatings[user1Index][key] - self.itemRatings[user2Index][key]),2)
             else:
                 totalRatingDistance += self.penalty
+            multiplier -= 1/MULTIPLIER_DENOMINATOR
         return math.sqrt(totalRatingDistance)

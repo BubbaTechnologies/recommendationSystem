@@ -23,6 +23,20 @@ __typeDict = {
    "set":12
 }
 
+def getGenders():
+    genderDict = __gendersDict
+    return __gendersDict
+
+def checkGender(string: str)->bool:
+    if string.lower() in __gendersDict.keys():
+        return True
+    return False
+
+def checkType(string: str)->bool:
+    if string.lower() in __typeDict.keys():
+        return True
+    return False
+
 def genderToInt(string: str)->int:
     return __gendersDict[string.lower()]
 
