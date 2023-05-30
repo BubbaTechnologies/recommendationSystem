@@ -23,8 +23,9 @@ __typeDict = {
    "set":12
 }
 
+clothingDict = {}
+
 def getGenders():
-    genderDict = __gendersDict
     return __gendersDict
 
 def checkGender(string: str)->bool:
@@ -42,3 +43,4 @@ def genderToInt(string: str)->int:
 
 def typeToInt(string: str)->int:
     return __typeDict[string.lower()]
+
