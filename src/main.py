@@ -3,7 +3,6 @@ import modin.pandas as pd
 import models.tools as tools
 import operator
 import asyncio
-import time
 import concurrent.futures
 import multiprocessing
 import uvicorn
@@ -72,7 +71,6 @@ async def reccomendation(userId: int, gender: str, clothingType:Union[str, None]
     if not tools.checkGender(gender) or (clothingType and not tools.checkType(clothingType)):
         raise HTTPException(status_code=400, detail="Invalid URL query parameters.")
     
-    startTime = time.time()
     #Checks if in cache
     inModel = oknn.userInModel(userId)
     itemIdList = []
@@ -94,7 +92,6 @@ async def reccomendation(userId: int, gender: str, clothingType:Union[str, None]
     
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
-    tools.printMessage(f"Elapsed time: {time.time() - startTime}")
     return {"itemId":int(returnItemId)}
 
 @app.post("/like")
