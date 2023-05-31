@@ -10,4 +10,4 @@ COPY src /app
 
 EXPOSE 8080
 
-CMD ["uvicorn", "main:app"]
+# CMD ["uvicorn", "main:app"]
