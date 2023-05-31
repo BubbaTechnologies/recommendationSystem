@@ -48,7 +48,8 @@ client = Client()
 @app.on_event("startup")
 async def startup():
     os.environ["MODIN_ENGINE"] = "dask"
-    await asyncio.gather(loadDatabase(), getRatings())
+    await asyncio.gather(loadModel(), getRatings())
+    print(f"[{time.time()}]: Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
     scheduler.add_job(getRatings, 'interval', hours=24)
     scheduler.add_job(loadItems, 'interval', hours=12)
@@ -119,7 +120,7 @@ async def getRatings():
         topRatings[gender] = rankings
         return
 
-async def loadDatabase():
+async def loadModel():
     df = pd.read_sql("SELECT ebdb.likes.user_id, ebdb.likes.clothing_id, ebdb.likes.rating FROM ebdb.likes", CONNECTION_STRING)
     for _,row in df.iterrows():
         oknn.update(row["user_id"], row["clothing_id"], row["rating"])
