@@ -1,0 +1,26 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "python:3.11",
+    "Update": "true"
+  },
+  "Ports": [
+    {
+      "ContainerPort": 80,
+      "HostPort": 8080
+    }
+  ],
+  "Command": "uvicorn main:app --host 0.0.0.0 --port 80",
+  "Env": [
+    {
+      "Name": "SERVER_USERNAME",
+      "Value": "Admin"
+    },
+    {
+      "Name": "SERVER_PASSWORD",
+      "Value": "gykjav-qacxAc-0derha"
+    }
+  ]
+}
+
+  
