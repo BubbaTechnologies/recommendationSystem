@@ -1,3 +1,5 @@
+import datetime
+
 __gendersDict = {
     "female":0,
     "male":1,
@@ -43,4 +45,7 @@ def genderToInt(string: str)->int:
 
 def typeToInt(string: str)->int:
     return __typeDict[string.lower()]
+
+def printMessage(message: str) -> None:
+    print(datetime.datetime.now().strftime("%H:%M:%S") + ": " + message)
 

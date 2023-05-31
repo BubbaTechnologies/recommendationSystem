@@ -48,8 +48,9 @@ client = Client()
 @app.on_event("startup")
 async def startup():
     os.environ["MODIN_ENGINE"] = "dask"
+    tools.printMessage(f"Running with {MAX_THREADS} threads.")
     await asyncio.gather(loadModel(), getRatings())
-    print(f"[{time.time()}]: Finished initial offline ratings and loading model.")
+    tools.printMessage("Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
     scheduler.add_job(getRatings, 'interval', hours=24)
     scheduler.add_job(loadItems, 'interval', hours=12)
@@ -93,7 +94,7 @@ async def reccomendation(userId: int, gender: str, clothingType:Union[str, None]
     
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
-    print(f"Elapsed time: {time.time() - startTime}")
+    tools.printMessage(f"Elapsed time: {time.time() - startTime}")
     return {"itemId":int(returnItemId)}
 
 @app.post("/like")
@@ -141,7 +142,7 @@ async def loadItems():
             try:
                 future.result()
             except Exception as e:
-                print(e)
+                tools.printMessage(e)
     return
 
 def totalRatingCalcuation(reccomendationScore, newestUploadScore, averageRatingScore):
