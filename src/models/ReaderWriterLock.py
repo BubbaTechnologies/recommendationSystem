@@ -3,24 +3,26 @@ import asyncio
 
 class ReaderWriterLock:
     def __init__(self):
-        self.lock = threading.RLock()
-        self.writer_lock = asyncio.Lock()
+        self.read_lock = threading.Lock()
+        self.write_lock = asyncio.Lock()
         self.reader_count = 0
 
     async def acquire_read(self):
-        with self.lock:
+        async with self.read_lock:
             self.reader_count += 1
             if self.reader_count == 1:
-                self.writer_lock.acquire()
+                await self.write_lock.acquire()
+                print("Acquired")
 
     def release_read(self):
-        with self.lock:
+        with self.read_lock:
             self.reader_count -= 1
             if self.reader_count == 0:
-                self.writer_lock.release()
+                self.write_lock.release()
+                print("Release")
 
     async def acquire_write(self):
-        self.writer_lock.acquire()
+        await self.write_lock.acquire()
 
     def release_write(self):
-        self.writer_lock.release()
+        self.write_lock.release()
