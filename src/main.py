@@ -92,7 +92,7 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
         try:
             itemIdList = oknn.recommendItem(userId)
         finally:
-            lock.release_read()
+            await lock.release_read()
         itemIdList = postModelRanking(itemIdList)
     elif userId not in cache.keys():
         itemIdList = topRatings[gender]
@@ -116,7 +116,7 @@ async def like(likeRequest: LikeRequest):
         cache.pop(likeRequest.userId)
         oknn.update(likeRequest.userId, likeRequest.clothingId, likeRequest.rating)
     finally:
-        lock.release_write()
+        await lock.release_write()
     return "",200
 
 async def getRatings():
