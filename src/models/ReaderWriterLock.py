@@ -13,34 +13,39 @@ class ReaderWriterLock:
         self.writersConditions = threading.Condition(self.lock)
 
     def acquire_read(self):
+        self.lock.acquire()
         while self.writers > 0 or self.write_requested:
             self.readersConditions.wait()
         self.readers += 1
-        self.lock.acquire()
+        self.lock.release()
+        
 
     def release_read(self):
+        self.lock.acquire()
         self.readers -= 1
-        self.lock.release()
         if self.readers == 0:
             self.writersConditions.notify()
+        self.lock.release()
     
     def acquire_write(self):
+        self.lock.acquire()
         self.write_queue.append(threading.get_ident())
         self.write_requested = True
         while self.writers > 0 or self.readers > 0 or self.write_queue[0] != threading.get_ident():
             self.writersConditions.wait()
         self.writers += 1
-        self.lock.acquire()
+        self.lock.release()
         
 
     def release_write(self):
+        self.lock.acquire()
         self.writers -= 1
-        self.lock.release()
         if self.writers == 0:
             self.write_queue.popleft()
             self.write_requested = len(self.write_queue) > 0
             self.writersConditions.notify_all()
             self.readersConditions.notify_all()
+        self.lock.release()
             
             
             
