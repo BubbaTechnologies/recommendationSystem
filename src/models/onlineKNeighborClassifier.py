@@ -12,7 +12,7 @@ class OnlineKNeighborClassifier:
         self.penalty = penalty
         self.userProfiles:List[int] = []
         self.itemRatings = []
-        self.nn = NearestNeighbors(n_neighbors=self.nNeighbors, metric=self.distance, algorithm="brute")
+        self.nn = NearestNeighbors(n_neighbors=self.nNeighbors, metric=self.distance, algorithm="brute", n_jobs=-1)
 
     def update(self, userId: int, itemId: int, rating: float):
         userId = [userId]

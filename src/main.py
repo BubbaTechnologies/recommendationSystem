@@ -66,7 +66,7 @@ async def index():
 async def reccomendation(userId: int, gender: str, clothingType:Union[str, None] = None):
     gender = gender.lower()
     if clothingType != None:
-        clothingType = clothingType.replace("_"," ").lower()
+        clothingType = clothingType.replace("_"," ").split(",").lower()
     
     if not tools.checkGender(gender) or (clothingType and not tools.checkType(clothingType)):
         raise HTTPException(status_code=400, detail="Invalid URL query parameters.")
@@ -92,7 +92,7 @@ async def reccomendation(userId: int, gender: str, clothingType:Union[str, None]
     
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
-    return {"itemId":int(returnItemId)}
+    return {"clothingId" : int(returnItemId)}
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
@@ -174,18 +174,18 @@ def getIndex(list: List[tuple[int, int]], element: int)->int:
             return i
     return None
 
-def getItem(itemList: List[int], gender, clothingType=None):
+def getItem(itemList: List[int], gender, clothingType:List[str]=None):
     #Filters items
     genderInt = tools.genderToInt(gender)
-    if clothingType:
-        clothingTypeInt = tools.typeToInt(clothingType)
+    for index, item in enumerate(clothingType):
+        clothingType[index] = tools.typeToInt(item)
 
     for item in itemList:
         values = getItemInformation(item)
         if values != None:
             queriedType = values[0]
             queriedGender = values[1]
-            if queriedGender == genderInt and ((clothingType and clothingTypeInt == queriedType) or not clothingType):
+            if queriedGender == genderInt and ((clothingType and queriedType in clothingType) or not clothingType):
                 return item
     return None
 

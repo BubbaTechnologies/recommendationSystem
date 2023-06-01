@@ -5,8 +5,14 @@
 Description: Returns to www.peachsconemarket.com
 ### /reccomendation
 METHOD: GET
-Paremeters: userId (required), gender (required), clothingType (required)
-Description: Reccomends item clothing. If no item can be reccomended HTTP Status Code 204 will be returned.
+Paremeters: userId (required), gender (required), clothingType (optional)
+Description: Recommends item clothing. If no item can be reccomended HTTP Status Code 204 will be returned.
+Response:
+```
+{
+    "clothingId":int
+}
+```
 ### /like 
 Method: POST
 Content-Type: application/json
