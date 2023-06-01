@@ -66,7 +66,7 @@ async def index():
 async def reccomendation(userId: int, gender: str, clothingType:Union[str, None] = None):
     gender = gender.lower()
     if clothingType != None:
-        clothingType = clothingType.replace("_"," ").split(",").lower()
+        clothingType = clothingType.replace("_"," ").lower().split(",")
     
     if not tools.checkGender(gender) or (clothingType and not tools.checkType(clothingType)):
         raise HTTPException(status_code=400, detail="Invalid URL query parameters.")
