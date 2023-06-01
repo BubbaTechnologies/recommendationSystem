@@ -27,7 +27,7 @@ clothingDict = {}
 lock = ReaderWriterLock()
 
 CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("SERVER_USERNAME")}:{os.getenv("SERVER_PASSWORD")}@awseb-e-actsphbery-stack-awsebrdsdatabase-glefupggrhnl.csggsk1g25yj.us-east-1.rds.amazonaws.com:3306/ebdb'
-MAX_THREADS = multiprocessing.cpu_count() - 1
+MAX_THREADS = multiprocessing.cpu_count() 
 
 #Offline Parameters
 ITEM_COUNT = 25
@@ -132,6 +132,7 @@ async def getRatings():
         for clothing_id in averageRatingsDf["clothing_id"]:
             rankings.append(clothing_id)
         topRatings[gender] = rankings
+        logger.info("Finished offline rankings.")
         return
 
 async def loadModel():
@@ -156,6 +157,7 @@ async def loadItems():
                 future.result()
             except Exception as e:
                 tools.printMessage(e)
+    logger.info("Finished loading items.")
     return
 
 def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):

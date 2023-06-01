@@ -5,7 +5,7 @@ class ReaderWriterLock:
         self.lock = threading.RLock()
         self.reader_count = 0
 
-    def acquire_read(self):
+    async def acquire_read(self):
         with self.lock:
             self.reader_count += 1
             if self.reader_count == 1:
@@ -17,7 +17,7 @@ class ReaderWriterLock:
             if self.reader_count == 0:
                 self.lock.release()
 
-    def acquire_write(self):
+    async def acquire_write(self):
         self.lock.acquire()
 
     def release_write(self):
