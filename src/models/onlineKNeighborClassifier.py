@@ -65,6 +65,7 @@ class OnlineKNeighborClassifier:
             return False
 
     def distance(self, user1, user2):
+        print(user1, user2)
         totalRatingDistance = 0
         user1Index = self.userProfiles.index(user1)
         user2Index = self.userProfiles.index(user2)

@@ -6,22 +6,25 @@ import asyncio
 import concurrent.futures
 import multiprocessing
 import uvicorn
+import logging
+import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from cachetools import TTLCache
 from distributed import Client
 from typing import Union, List, Tuple
 from models.onlineKNeighborClassifier import OnlineKNeighborClassifier
+from models.ReaderWriterLock import ReaderWriterLock
 
 from fastModels.likeRequest import LikeRequest
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
-cache = TTLCache(maxsize=10000, ttl=5)
+cache = TTLCache(maxsize=10000, ttl=None)
 topRatings = {}
 clothingDict = {}
-lock = asyncio.Lock()
+lock = ReaderWriterLock()
 
 CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("SERVER_USERNAME")}:{os.getenv("SERVER_PASSWORD")}@awseb-e-actsphbery-stack-awsebrdsdatabase-glefupggrhnl.csggsk1g25yj.us-east-1.rds.amazonaws.com:3306/ebdb'
 MAX_THREADS = multiprocessing.cpu_count() - 1
@@ -44,12 +47,20 @@ scheduler = BackgroundScheduler()
 #Modin parameters
 client = Client()
 
+#Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 @app.on_event("startup")
 async def startup():
     os.environ["MODIN_ENGINE"] = "dask"
-    tools.printMessage(f"Running with {MAX_THREADS} threads.")
+    logger.info(f"Running with {MAX_THREADS} threads.")
     await asyncio.gather(loadModel(), getRatings())
-    tools.printMessage("Finished initial offline ratings and loading model.")
+    logger.info("Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
     scheduler.add_job(getRatings, 'interval', hours=24)
     scheduler.add_job(loadItems, 'interval', hours=12)
@@ -71,15 +82,17 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
     if not tools.checkGender(gender) or (clothingType and not tools.checkType(clothingType)):
         raise HTTPException(status_code=400, detail="Invalid URL query parameters.")
     
+    startTime = time.time()
+
     #Checks if in cache
     inModel = oknn.userInModel(userId)
     itemIdList = []
     if userId not in cache.keys() and inModel:
-        await lock.acquire()
+        await lock.acquire_read()
         try:
             itemIdList = oknn.recommendItem(userId)
         finally:
-            lock.release()
+            lock.release_read()
         itemIdList = postModelRanking(itemIdList)
     elif userId not in cache.keys():
         itemIdList = topRatings[gender]
@@ -88,20 +101,23 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
 
     returnItemId = getItem(itemIdList, gender, clothingType)
     if not returnItemId:
+        logger.error(f"Could not reccomend item for userId: {userId}, gender: {gender}, clothingType: {clothingType}")
         return HTTPException(status_code=204, detail="Could not recommend an item.")
     
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
+    logger.info(f"Request with userId: {userId}, gender: {gender}, clothingType: {clothingType} returned with clothingId: {returnItemId} in elasped time {time.time() - startTime}")
     return {"clothingId" : int(returnItemId)}
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
-    await lock.acquire()
+    await lock.acquire_write()
     try:
+        cache.pop(likeRequest.userId)
         oknn.update(likeRequest.userId, likeRequest.clothingId, likeRequest.rating)
     finally:
-        lock.release()
-    return 
+        lock.release_write()
+    return "",200
 
 async def getRatings():
     for gender in tools.getGenders().keys():

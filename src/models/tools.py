@@ -46,6 +46,6 @@ def genderToInt(string: str)->int:
 def typeToInt(string: str)->int:
     return __typeDict[string.lower()]
 
-def printMessage(message: str) -> None:
-    print(datetime.datetime.now().strftime("%H:%M:%S") + ": " + message)
+def getMessage(message: str) -> str:
+    return datetime.datetime.now().strftime("%H:%M:%S") + ": " + message
 
