@@ -33,7 +33,7 @@ class OnlineKNeighborClassifier:
 
         self.nn.fit(self.userProfiles)
 
-    def reccomendItem(self, userId, itemAmount=20):
+    def recommendItem(self, userId, itemAmount=20):
         userIndex = self.userProfiles.index([userId])
         if self.itemRatings[userIndex].keys() == 0:
             raise ValueError(f"No data on {userId}")

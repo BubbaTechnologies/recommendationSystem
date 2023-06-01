@@ -62,8 +62,8 @@ async def shutdown():
 async def index():
     return RedirectResponse(url="https://www.peachsconemarket.com")
 
-@app.get("/reccomendation")
-async def reccomendation(userId: int, gender: str, clothingType:Union[str, None] = None):
+@app.get("/recommendation")
+async def recommendation(userId: int, gender: str, clothingType:Union[str, None] = None):
     gender = gender.lower()
     if clothingType != None:
         clothingType = clothingType.replace("_"," ").lower().split(",")
@@ -77,7 +77,7 @@ async def reccomendation(userId: int, gender: str, clothingType:Union[str, None]
     if userId not in cache.keys() and inModel:
         await lock.acquire()
         try:
-            itemIdList = oknn.reccomendItem(userId)
+            itemIdList = oknn.recommendItem(userId)
         finally:
             lock.release()
         itemIdList = postModelRanking(itemIdList)
@@ -88,7 +88,7 @@ async def reccomendation(userId: int, gender: str, clothingType:Union[str, None]
 
     returnItemId = getItem(itemIdList, gender, clothingType)
     if not returnItemId:
-        return HTTPException(status_code=204, detail="Could not reccomend an item.")
+        return HTTPException(status_code=204, detail="Could not recommend an item.")
     
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
@@ -142,8 +142,8 @@ async def loadItems():
                 tools.printMessage(e)
     return
 
-def totalRatingCalcuation(reccomendationScore, newestUploadScore, averageRatingScore):
-    return 0.6 * (reccomendationScore) + 0.25 * (newestUploadScore) + .15 * (averageRatingScore)
+def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
+    return 0.6 * (recommendationScore) + 0.25 * (newestUploadScore) + .15 * (averageRatingScore)
 
 def postModelRanking(itemList: List[int]) -> List[int]:
     #Gets all uploads and ratings

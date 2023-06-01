@@ -3,10 +3,10 @@
 ## Routes
 ### / (GET)
 Description: Returns to www.peachsconemarket.com
-### /reccomendation
+### /recommendation
 METHOD: GET
 Paremeters: userId (required), gender (required), clothingType (optional)
-Description: Recommends item clothing. If no item can be reccomended HTTP Status Code 204 will be returned.
+Description: Recommends item clothing. If no item can be recommended HTTP Status Code 204 will be returned.
 Response:
 ```
 {
