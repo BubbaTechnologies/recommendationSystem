@@ -8,6 +8,7 @@ import multiprocessing
 import uvicorn
 import logging
 import time
+import contextvars
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from cachetools import TTLCache
@@ -39,7 +40,7 @@ WINDOW_SIZE = 50
 N_NEIGHBORS = 2
 PENALTY = 1000
 
-WRITE_ID = 0
+WRITE_ID = contextvars.ContextVar('name')
 
 oknn = OnlineKNeighborClassifier(WINDOW_SIZE, N_NEIGHBORS, PENALTY)
 
@@ -61,6 +62,7 @@ logger.addHandler(handler)
 async def startup():
     os.environ["MODIN_ENGINE"] = "dask"
     logger.info(f"Running with {MAX_THREADS} threads.")
+    WRITE_ID.set(0)
     await asyncio.gather(loadModel(), getRatings())
     logger.info("Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
@@ -119,8 +121,8 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
-    await lock.acquire_write(WRITE_ID)
-    WRITE_ID += 1
+    await lock.acquire_write(WRITE_ID.get())
+    incrementContext()
     try:
         cache.pop(likeRequest.userId)
         oknn.update(likeRequest.userId, likeRequest.clothingId, likeRequest.rating)
@@ -129,8 +131,8 @@ async def like(likeRequest: LikeRequest):
     return "",200
 
 async def getRatings():
-    await lock.acquire_write(WRITE_ID)
-    WRITE_ID += 1
+    await lock.acquire_write(WRITE_ID.get())
+    incrementContext()
     try:
         for gender in tools.getGenders().keys():
             df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
@@ -163,8 +165,8 @@ def processRow(row, dict):
     dict[key] = (clothingType, gender)
 
 async def loadItems():
-    await lock.acquire_write(WRITE_ID)
-    WRITE_ID += 1
+    await lock.acquire_write(WRITE_ID.get())
+    incrementContext()
     try:
         df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
         with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
@@ -230,6 +232,9 @@ def getItemInformation(clothingId: int)->Union[Tuple[int, int], None]:
     if clothingId in clothingDict.keys():
         return clothingDict[clothingId]
     return None
+
+def incrementContext():
+    WRITE_ID.set(WRITE_ID.get() + 1)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", port=os.getenv("FAST_PORT", 5000))
