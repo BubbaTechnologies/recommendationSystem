@@ -1,51 +1,50 @@
-import threading
 import asyncio
 from collections import deque
 
 class ReaderWriterLock:
     def __init__(self):
-        self.readers = 0
-        self.writers = 0
-        self.lock = asyncio.Lock()
-        self.write_queue = deque()
-        self.write_requested = False
-        self.readersConditions = threading.Condition(self.lock)
-        self.writersConditions = threading.Condition(self.lock)
+        self._readers = 0
+        self._writers = 0
+        self._lock = asyncio.Lock()
+        self._write_queue = deque()
+        self._readersConditions = asyncio.Condition(self._lock)
+        self._writersConditions = asyncio.Condition(self._lock)
 
     async def acquire_read(self):
-        await self.lock.acquire()
-        while self.writers > 0 or self.write_requested:
-            self.readersConditions.wait()
-        self.readers += 1
-        await self.lock.release()
-        
+        await self._lock.acquire()
+        try:
+            while self._writers > 1 or len(self._write_queue) > 0:
+                self._readersConditions.wait()
+            self._readers += 1
+        finally:
+            self._lock.release()
 
     async def release_read(self):
-        await self.lock.acquire()
-        self.readers -= 1
-        if self.readers == 0:
-            self.writersConditions.notify()
-        await self.lock.release()
-    
-    async def acquire_write(self):
-        await self.lock.acquire()
-        self.write_queue.append(threading.get_ident())
-        self.write_requested = True
-        while self.writers > 0 or self.readers > 0 or self.write_queue[0] != threading.get_ident():
-            self.writersConditions.wait()
-        self.writers += 1
-        await self.lock.release()
-        
+        await self._lock.acquire()
+        try:
+            self._readers -= 1
+            if self._readers == 0:
+                self._writersConditions.notify_all()
+        finally:
+            self._lock.release()
+       
+    async def acquire_write(self, context):
+        await self._lock.acquire()
+        try:
+            self._write_queue.append(context)
+            while (self._readers > 0 or self._writers > 0) and self._write_queue[0] == context:
+                self._writersConditions.wait()
+            self._writers += 1
+            self._write_queue.popleft()
+        finally:
+            self._lock.release()
 
     async def release_write(self):
-        await self.lock.acquire()
-        self.writers -= 1
-        if self.writers == 0:
-            self.write_queue.popleft()
-            self.write_requested = len(self.write_queue) > 0
-            self.writersConditions.notify_all()
-            self.readersConditions.notify_all()
-        await self.lock.release()
-            
-            
-            
+        await self._lock.acquire()
+        try:
+            self._writers -= 1
+            self._writersConditions.notify_all()
+            if len(self._write_queue) <= 0:
+                self._readersConditions.notify_all()
+        finally:
+            self._lock.release()

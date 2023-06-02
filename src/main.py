@@ -86,19 +86,25 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
 
     #Checks if in cache
     inModel = oknn.userInModel(userId)
+    inCacheKeys = userId in cache.keys()
     itemIdList = []
-    if userId not in cache.keys() and inModel:
+
+    #Critical section
+    if not inCacheKeys:
         await lock.acquire_read()
         try:
-            itemIdList = oknn.recommendItem(userId)
+            if inModel:
+                itemIdList = oknn.recommendItem(userId)
+            else:
+                itemIdList = topRatings[gender]
         finally:
-            await lock.release_read()
-        itemIdList = postModelRanking(itemIdList)
-    elif userId not in cache.keys():
-        itemIdList = topRatings[gender]
+            lock.release_read()
     else:
         itemIdList = cache[userId]
 
+    if not inCacheKeys and inModel:
+        itemIdList = postModelRanking(itemIdList)
+    
     returnItemId = getItem(itemIdList, gender, clothingType)
     if not returnItemId:
         logger.error(f"Could not reccomend item for userId: {userId}, gender: {gender}, clothingType: {clothingType}")
@@ -120,20 +126,24 @@ async def like(likeRequest: LikeRequest):
     return "",200
 
 async def getRatings():
-    for gender in tools.getGenders().keys():
-        df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
-        if df.empty:
-            continue
+    await lock.acquire_write()
+    try:
+        for gender in tools.getGenders().keys():
+            df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
+            if df.empty:
+                continue
 
-        #Get all unique clothing items with likes
-        averageRatings = df.groupby('clothing_id')['rating'].mean()
-        averageRatingsDf = pd.DataFrame({"clothing_id":averageRatings.index, "average_rating": averageRatings.values}).sort_values(by=["average_rating"], ascending=False).head(ITEM_COUNT)
-        rankings = []
-        for clothing_id in averageRatingsDf["clothing_id"]:
-            rankings.append(clothing_id)
-        topRatings[gender] = rankings
-        logger.info("Finished offline rankings.")
-        return
+            #Get all unique clothing items with likes
+            averageRatings = df.groupby('clothing_id')['rating'].mean()
+            averageRatingsDf = pd.DataFrame({"clothing_id":averageRatings.index, "average_rating": averageRatings.values}).sort_values(by=["average_rating"], ascending=False).head(ITEM_COUNT)
+            rankings = []
+            for clothing_id in averageRatingsDf["clothing_id"]:
+                rankings.append(clothing_id)
+            topRatings[gender] = rankings
+            logger.info("Finished offline rankings.")
+            return
+    finally:
+        lock.release_write()
 
 async def loadModel():
     df = pd.read_sql("SELECT ebdb.likes.user_id, ebdb.likes.clothing_id, ebdb.likes.rating FROM ebdb.likes", CONNECTION_STRING)
@@ -149,15 +159,19 @@ def processRow(row, dict):
     dict[key] = (clothingType, gender)
 
 async def loadItems():
-    df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
-    with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
-        futureToRow = {executor.submit(processRow, row, clothingDict): row for _, row in df.iterrows()}
-        for future in concurrent.futures.as_completed(futureToRow):
-            try:
-                future.result()
-            except Exception as e:
-                tools.printMessage(e)
-    logger.info("Finished loading items.")
+    lock.acquire_write()
+    try:
+        df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
+        with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
+            futureToRow = {executor.submit(processRow, row, clothingDict): row for _, row in df.iterrows()}
+            for future in concurrent.futures.as_completed(futureToRow):
+                try:
+                    future.result()
+                except Exception as e:
+                    tools.printMessage(e)
+        logger.info("Finished loading items.")
+    finally:
+        lock.release_write()
     return
 
 def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
