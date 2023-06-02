@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
-cache = TTLCache(maxsize=10000, ttl=30)
+cache = TTLCache(maxsize=10000, ttl=10)
 topRatings = {}
 clothingDict = {}
 lock = ReaderWriterLock()
@@ -113,7 +113,6 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
     if not returnItemId:
         logger.error(f"Could not reccomend item for userId: {userId}, gender: {gender}, clothingType: {clothingType}")
         return HTTPException(status_code=204, detail="Could not recommend an item.")
-    
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
     logger.info(f"Request with userId: {userId}, gender: {gender}, clothingType: {clothingType} returned with clothingId: {returnItemId} in elasped time {time.time() - startTime}")
