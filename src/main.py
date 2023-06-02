@@ -102,7 +102,7 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
             else:
                 itemIdList = topRatings[gender]
         finally:
-            lock.release_read()
+            await lock.release_read()
     else:
         itemIdList = cache[userId]
 
@@ -149,7 +149,7 @@ async def getRatings():
             logger.info("Finished offline rankings.")
             return
     finally:
-        lock.release_write()
+        await lock.release_write()
 
 async def loadModel():
     df = pd.read_sql("SELECT ebdb.likes.user_id, ebdb.likes.clothing_id, ebdb.likes.rating FROM ebdb.likes", CONNECTION_STRING)
@@ -178,7 +178,7 @@ async def loadItems():
                     tools.printMessage(e)
         logger.info("Finished loading items.")
     finally:
-        lock.release_write()
+        await lock.release_write()
     return
 
 def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
