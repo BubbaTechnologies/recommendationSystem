@@ -216,8 +216,9 @@ def getIndex(list: List[tuple[int, int]], element: int)->int:
 def getItem(itemList: List[int], gender, clothingType:List[str]=None):
     #Filters items
     genderInt = tools.genderToInt(gender)
-    for index, item in enumerate(clothingType):
-        clothingType[index] = tools.typeToInt(item)
+    if clothingType != None:
+        for index, item in enumerate(clothingType):
+            clothingType[index] = tools.typeToInt(item)
 
     for item in itemList:
         values = getItemInformation(item)
