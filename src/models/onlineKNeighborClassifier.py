@@ -46,13 +46,15 @@ class OnlineKNeighborClassifier:
         neighborIndices.remove(userIndex)
 
         totalRatings = {}
+        userKeys = self.itemRatings[userIndex].keys()
         
         for neighbor in neighborIndices:
-            for item in self.itemRatings[neighbor].keys() - self.itemRatings[userIndex].keys():
-                if item in totalRatings.keys():
-                    totalRatings[item] += self.itemRatings[neighbor][item]
-                else:
-                    totalRatings[item] = self.itemRatings[neighbor][item]
+            for item in self.itemRatings[neighbor].keys():
+                if item not in userKeys:
+                    if item in totalRatings.keys():
+                        totalRatings[item] += self.itemRatings[neighbor][item]
+                    else:
+                        totalRatings[item] = self.itemRatings[neighbor][item]
 
         sortedItems = sorted(totalRatings.items(), key=lambda x: x[1], reverse=True)
         reccomendedItems = [itemId for itemId, _ in sortedItems[:itemAmount]]

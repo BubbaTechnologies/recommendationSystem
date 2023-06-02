@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
-cache = TTLCache(maxsize=10000, ttl=10)
+cache = TTLCache(maxsize=10000, ttl=25)
 topRatings = {}
 clothingDict = {}
 lock = ReaderWriterLock()
@@ -64,6 +64,7 @@ async def startup():
     logger.info(f"Running with {MAX_THREADS} threads.")
     WRITE_ID.set(0)
     await asyncio.gather(loadModel(), getRatings())
+    print(topRatings)
     logger.info("Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
     scheduler.add_job(getRatings, 'interval', hours=24)
@@ -137,7 +138,6 @@ async def getRatings():
             df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
             if df.empty:
                 continue
-
             #Get all unique clothing items with likes
             averageRatings = df.groupby('clothing_id')['rating'].mean()
             averageRatingsDf = pd.DataFrame({"clothing_id":averageRatings.index, "average_rating": averageRatings.values}).sort_values(by=["average_rating"], ascending=False).head(ITEM_COUNT)
@@ -145,10 +145,10 @@ async def getRatings():
             for clothing_id in averageRatingsDf["clothing_id"]:
                 rankings.append(clothing_id)
             topRatings[gender] = rankings
-            logger.info("Finished offline rankings.")
-            return
     finally:
         await lock.release_write()
+    logger.info("Finished offline rankings.")
+    return
 
 async def loadModel():
     df = pd.read_sql("SELECT ebdb.likes.user_id, ebdb.likes.clothing_id, ebdb.likes.rating FROM ebdb.likes", CONNECTION_STRING)
