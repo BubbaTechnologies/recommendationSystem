@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
-cache = TTLCache(maxsize=10000, ttl=None)
+cache = TTLCache(maxsize=10000, ttl=30)
 topRatings = {}
 clothingDict = {}
 lock = ReaderWriterLock()
