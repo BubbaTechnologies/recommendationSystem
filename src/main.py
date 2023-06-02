@@ -39,6 +39,8 @@ WINDOW_SIZE = 50
 N_NEIGHBORS = 2
 PENALTY = 1000
 
+WRITE_ID = 0
+
 oknn = OnlineKNeighborClassifier(WINDOW_SIZE, N_NEIGHBORS, PENALTY)
 
 #Scheduler Parameters
@@ -117,7 +119,8 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
-    await lock.acquire_write()
+    await lock.acquire_write(WRITE_ID)
+    WRITE_ID += 1
     try:
         cache.pop(likeRequest.userId)
         oknn.update(likeRequest.userId, likeRequest.clothingId, likeRequest.rating)
@@ -126,7 +129,8 @@ async def like(likeRequest: LikeRequest):
     return "",200
 
 async def getRatings():
-    await lock.acquire_write()
+    await lock.acquire_write(WRITE_ID)
+    WRITE_ID += 1
     try:
         for gender in tools.getGenders().keys():
             df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
@@ -159,7 +163,8 @@ def processRow(row, dict):
     dict[key] = (clothingType, gender)
 
 async def loadItems():
-    lock.acquire_write()
+    await lock.acquire_write(WRITE_ID)
+    WRITE_ID += 1
     try:
         df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
         with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
