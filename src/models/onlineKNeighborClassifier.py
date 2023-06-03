@@ -57,8 +57,7 @@ class OnlineKNeighborClassifier:
                         totalRatings[item] = self.itemRatings[neighbor][item]
 
         sortedItems = sorted(totalRatings.items(), key=lambda x: x[1], reverse=True)
-        reccomendedItems = [itemId for itemId, _ in sortedItems[:itemAmount]]
-        return reccomendedItems
+        return [itemId for itemId, _ in sortedItems[:itemAmount]]
     
     def userInModel(self,userId:int) -> bool:
         if [userId] in self.userProfiles and len(self.itemRatings[self.userProfiles.index([userId])].keys()) > 10:

@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
-cache = TTLCache(maxsize=10000, ttl=25)
+cache = TTLCache(maxsize=10000, ttl=30)
 topRatings = {}
 clothingDict = {}
 lock = ReaderWriterLock()
@@ -64,7 +64,6 @@ async def startup():
     logger.info(f"Running with {MAX_THREADS} threads.")
     WRITE_ID.set(0)
     await asyncio.gather(loadModel(), getRatings())
-    print(topRatings)
     logger.info("Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
     scheduler.add_job(getRatings, 'interval', hours=24)
@@ -100,6 +99,7 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
         try:
             if inModel:
                 itemIdList = oknn.recommendItem(userId)
+                print(itemIdList)
             else:
                 itemIdList = topRatings[gender]
         finally:
@@ -184,8 +184,7 @@ def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingS
     return 0.6 * (recommendationScore) + 0.25 * (newestUploadScore) + .15 * (averageRatingScore)
 
 def postModelRanking(itemList: List[int]) -> List[int]:
-    #Gets all uploads and ratings
-    df = pd.read_sql(f"SELECT ebdb.likes.clothing_id, ebdb.likes.rating, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id", CONNECTION_STRING)
+    df = pd.read_sql(f"SELECT ebdb.likes.clothing_id, ebdb.likes.rating, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE clothing_id IN ({','.join(map(str, itemList))})", CONNECTION_STRING)
     uploadsDf = df.groupby("clothing_id")["date_created"]
     averageRatingsSeries = df.groupby('clothing_id')['rating'].mean()
 
@@ -199,9 +198,26 @@ def postModelRanking(itemList: List[int]) -> List[int]:
     uploadsRank = sorted(uploads, key=operator.itemgetter(1), reverse=True)
     averageRatingsRank = sorted(averageRatings, key=operator.itemgetter(1), reverse=True)
 
+    rankingsDict = {}
+    for i in range(len(uploadsRank)):
+        keys = rankingsDict.keys()
+        #Uploads adding
+        uploadRank = len(uploadsRank) - i
+        if uploadsRank[i][0] in keys:
+            rankingsDict[uploadsRank[i][0]] = (uploadRank, rankingsDict[uploadsRank[i][0]][1])
+        else:
+            rankingsDict[uploadsRank[i][0]] = (uploadRank, -1)
+
+        #averageRatings adding
+        averageRatingRank = len(averageRatingsRank) - i
+        if averageRatingsRank[i][0] in keys:
+            rankingsDict[averageRatingsRank[i][0]] = (rankingsDict[averageRatingsRank[i][0]][0], averageRatingRank)
+        else:
+            rankingsDict[averageRatingsRank[i][0]] = (-1, averageRatingRank)
+
     returnList = []
-    for item in itemList:
-        returnList.append((item, totalRatingCalcuation(len(itemList) - itemList.index(item),len(uploadsRank) - getIndex(uploadsRank, item), len(averageRatingsRank) - getIndex(averageRatingsRank, item))))
+    for index, item in enumerate(itemList):
+        returnList.append((item, totalRatingCalcuation(len(itemList) - index, rankingsDict[item][0], rankingsDict[item][1])))
 
     returnList = sorted(returnList, key=operator.itemgetter(1), reverse=True)
     return [element[0] for element in returnList]
