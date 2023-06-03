@@ -46,6 +46,9 @@ WINDOW_SIZE = 50
 N_NEIGHBORS = 2
 PENALTY = 1000
 
+#API PARAMETERS
+CLOTHING_COUNT = 10
+
 WRITE_ID = contextvars.ContextVar('name')
 
 oknn = OnlineKNeighborClassifier(WINDOW_SIZE, N_NEIGHBORS, PENALTY)
@@ -83,6 +86,36 @@ async def shutdown():
 async def index():
     return RedirectResponse(url="https://www.peachsconemarket.com")
 
+@app.get("/recommendationList")
+async def reccomendationList(userId: int, gender: str):
+    gender = gender.lower()
+
+    #Checks if in cache
+    inModel = oknn.userInModel(userId)
+    inCacheKeys = userId in cache.keys()
+
+    #Critical section
+    if not inCacheKeys:
+        await lock.acquire_read()
+        try:
+            if inModel:
+                itemIdList = oknn.recommendItem(userId, itemAmount=CLOTHING_COUNT)
+            else:
+                itemIdList = topRatings[gender]
+        finally:
+            await lock.release_read()
+    else:
+        itemIdList = cache[userId]
+
+    if not inCacheKeys and inModel:
+        itemIdList = postModelRanking(itemIdList)
+
+    cache[userId] = itemIdList
+    return {
+            "clothingCount":int(CLOTHING_COUNT),
+            "clothingItems":[int(x) for x in itemIdList]
+            }
+
 @app.get("/recommendation")
 async def recommendation(userId: int, gender: str, clothingType:Union[str, None] = None):
     gender = gender.lower()
@@ -91,13 +124,12 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
     
     if not tools.checkGender(gender) or (clothingType and not tools.checkType(clothingType)):
         raise HTTPException(status_code=400, detail="Invalid URL query parameters.")
-    
-    startTime = time.time()
 
     #Checks if in cache
     inModel = oknn.userInModel(userId)
     inCacheKeys = userId in cache.keys()
     itemIdList = []
+
 
     #Critical section
     if not inCacheKeys:
@@ -121,7 +153,6 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
         return HTTPException(status_code=204, detail="Could not recommend an item.")
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
-    logger.info(f"Request with userId: {userId}, gender: {gender}, clothingType: {clothingType} returned with clothingId: {returnItemId} in elasped time {time.time() - startTime}")
     return {"clothingId" : int(returnItemId)}
 
 @app.post("/like")
