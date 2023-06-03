@@ -1,5 +1,6 @@
 import os
 import modin.pandas as pd
+import pandas as rpd
 import models.tools as tools
 import operator
 import asyncio
@@ -16,6 +17,7 @@ from distributed import Client
 from typing import Union, List, Tuple
 from models.onlineKNeighborClassifier import OnlineKNeighborClassifier
 from models.ReaderWriterLock import ReaderWriterLock
+from sqlalchemy import create_engine, text
 
 from fastModels.likeRequest import LikeRequest
 from fastapi import FastAPI, HTTPException
@@ -28,7 +30,11 @@ clothingDict = {}
 lock = ReaderWriterLock()
 
 CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("SERVER_USERNAME")}:{os.getenv("SERVER_PASSWORD")}@awseb-e-actsphbery-stack-awsebrdsdatabase-glefupggrhnl.csggsk1g25yj.us-east-1.rds.amazonaws.com:3306/ebdb'
+ENGINE_CONNECTION = create_engine(CONNECTION_STRING).connect()
 MAX_THREADS = multiprocessing.cpu_count() 
+
+#SQL Alchemy
+ENGINE = create_engine(CONNECTION_STRING)
 
 #Offline Parameters
 ITEM_COUNT = 25
@@ -99,7 +105,6 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
         try:
             if inModel:
                 itemIdList = oknn.recommendItem(userId)
-                print(itemIdList)
             else:
                 itemIdList = topRatings[gender]
         finally:
@@ -135,7 +140,7 @@ async def getRatings():
     incrementContext()
     try:
         for gender in tools.getGenders().keys():
-            df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
+            df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",Connection())
             if df.empty:
                 continue
             #Get all unique clothing items with likes
@@ -164,27 +169,22 @@ def processRow(row, dict):
     dict[key] = (clothingType, gender)
 
 async def loadItems():
-    await lock.acquire_write(WRITE_ID.get())
-    incrementContext()
-    try:
-        df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
-        with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
-            futureToRow = {executor.submit(processRow, row, clothingDict): row for _, row in df.iterrows()}
-            for future in concurrent.futures.as_completed(futureToRow):
-                try:
-                    future.result()
-                except Exception as e:
-                    tools.printMessage(e)
-        logger.info("Finished loading items.")
-    finally:
-        await lock.release_write()
+    df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
+    with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
+        futureToRow = {executor.submit(processRow, row, clothingDict): row for _, row in df.iterrows()}
+        for future in concurrent.futures.as_completed(futureToRow):
+            try:
+                future.result()
+            except Exception as e:
+                tools.printMessage(e)
+    logger.info("Finished loading items.")
     return
 
 def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
     return 0.6 * (recommendationScore) + 0.25 * (newestUploadScore) + .15 * (averageRatingScore)
 
 def postModelRanking(itemList: List[int]) -> List[int]:
-    df = pd.read_sql(f"SELECT ebdb.likes.clothing_id, ebdb.likes.rating, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE clothing_id IN ({','.join(map(str, itemList))})", CONNECTION_STRING)
+    df = rpd.read_sql(text(f"SELECT ebdb.likes.clothing_id, ebdb.likes.rating, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE clothing_id IN ({','.join(map(str, itemList))})"), ENGINE_CONNECTION)
     uploadsDf = df.groupby("clothing_id")["date_created"]
     averageRatingsSeries = df.groupby('clothing_id')['rating'].mean()
 
