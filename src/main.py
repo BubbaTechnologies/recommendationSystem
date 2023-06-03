@@ -140,7 +140,7 @@ async def getRatings():
     incrementContext()
     try:
         for gender in tools.getGenders().keys():
-            df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",Connection())
+            df = pd.read_sql(f"SELECT ebdb.likes.id, clothing_id, rating, date_updated, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE ebdb.likes.date_updated >= CURRENT_DATE - INTERVAL '{DAYS_INTERVAL}' DAY AND ebdb.clothing.date_created >= CURRENT_DATE - INTERVAL '{MONTHS_INTERVAL}' MONTH AND ebdb.clothing.gender = {tools.genderToInt(gender)}",CONNECTION_STRING)
             if df.empty:
                 continue
             #Get all unique clothing items with likes
@@ -169,15 +169,20 @@ def processRow(row, dict):
     dict[key] = (clothingType, gender)
 
 async def loadItems():
-    df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
-    with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
-        futureToRow = {executor.submit(processRow, row, clothingDict): row for _, row in df.iterrows()}
-        for future in concurrent.futures.as_completed(futureToRow):
-            try:
-                future.result()
-            except Exception as e:
-                tools.printMessage(e)
-    logger.info("Finished loading items.")
+    await lock.acquire_write(WRITE_ID.get())
+    incrementContext()
+    try:
+        df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
+        with concurrent.futures.ThreadPoolExecutor(max_workers = MAX_THREADS) as executor:
+            futureToRow = {executor.submit(processRow, row, clothingDict): row for _, row in df.iterrows()}
+            for future in concurrent.futures.as_completed(futureToRow):
+                try:
+                    future.result()
+                except Exception as e:
+                    tools.printMessage(e)
+        logger.info("Finished loading items.")
+    finally:
+        lock.release_write()
     return
 
 def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
