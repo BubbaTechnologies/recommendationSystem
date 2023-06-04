@@ -29,7 +29,7 @@ clothingDict = {}
 lock = ReaderWriterLock()
 
 CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("SERVER_USERNAME")}:{os.getenv("SERVER_PASSWORD")}@awseb-e-actsphbery-stack-awsebrdsdatabase-glefupggrhnl.csggsk1g25yj.us-east-1.rds.amazonaws.com:3306/ebdb'
-ENGINE_CONNECTION = create_engine(CONNECTION_STRING).connect()
+ENGINE = create_engine(CONNECTION_STRING)
 MAX_THREADS = multiprocessing.cpu_count() 
 
 #SQL Alchemy
@@ -218,7 +218,9 @@ def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingS
     return 0.6 * (recommendationScore) + 0.25 * (newestUploadScore) + .15 * (averageRatingScore)
 
 def postModelRanking(itemList: List[int]) -> List[int]:
-    df = rpd.read_sql(text(f"SELECT ebdb.likes.clothing_id, ebdb.likes.rating, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE clothing_id IN ({','.join(map(str, itemList))})"), ENGINE_CONNECTION)
+    df = []
+    with ENGINE.connect() as ENGINE_CONNECTION:
+        df = rpd.read_sql(text(f"SELECT ebdb.likes.clothing_id, ebdb.likes.rating, date_created FROM ebdb.likes INNER JOIN ebdb.clothing ON ebdb.clothing.id = ebdb.likes.clothing_id WHERE clothing_id IN ({','.join(map(str, itemList))})"), ENGINE_CONNECTION)
     uploadsDf = df.groupby("clothing_id")["date_created"]
     averageRatingsSeries = df.groupby('clothing_id')['rating'].mean()
 
