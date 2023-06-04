@@ -33,7 +33,7 @@ class OnlineKNeighborClassifier:
 
         self.nn.fit(self.userProfiles)
 
-    def recommendItem(self, userId, itemAmount=10):
+    def recommendItem(self, userId, itemAmount=25):
         userIndex = self.userProfiles.index([userId])
         if self.itemRatings[userIndex].keys() == 0:
             raise ValueError(f"No data on {userId}")
@@ -77,7 +77,5 @@ class OnlineKNeighborClassifier:
             if key in self.itemRatings[user2Index].keys():
                 user2Keys += 1
                 totalRatingDistance += pow(multiplier * (self.itemRatings[user1Index][key] - self.itemRatings[user2Index][key]),2)
-            else:
-                totalRatingDistance += self.penalty
             multiplier -= 1/MULTIPLIER_DENOMINATOR
         return math.sqrt(totalRatingDistance)

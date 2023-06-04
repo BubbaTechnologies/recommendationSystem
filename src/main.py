@@ -8,7 +8,6 @@ import concurrent.futures
 import multiprocessing
 import uvicorn
 import logging
-import time
 import contextvars
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -45,9 +44,6 @@ DAYS_INTERVAL = 3
 WINDOW_SIZE = 50
 N_NEIGHBORS = 2
 PENALTY = 1000
-
-#API PARAMETERS
-CLOTHING_COUNT = 10
 
 WRITE_ID = contextvars.ContextVar('name')
 
@@ -87,8 +83,10 @@ async def index():
     return RedirectResponse(url="https://www.peachsconemarket.com")
 
 @app.get("/recommendationList")
-async def reccomendationList(userId: int, gender: str):
+async def reccomendationList(userId: int, gender: str, clothingType:Union[str, None] = None):
     gender = gender.lower()
+    if clothingType != None:
+        clothingType = clothingType.replace("_"," ").lower().split(",")
 
     #Checks if in cache
     inModel = oknn.userInModel(userId)
@@ -99,7 +97,7 @@ async def reccomendationList(userId: int, gender: str):
         await lock.acquire_read()
         try:
             if inModel:
-                itemIdList = oknn.recommendItem(userId, itemAmount=CLOTHING_COUNT)
+                itemIdList = oknn.recommendItem(userId)
             else:
                 itemIdList = topRatings[gender]
         finally:
@@ -111,8 +109,8 @@ async def reccomendationList(userId: int, gender: str):
         itemIdList = postModelRanking(itemIdList)
 
     cache[userId] = itemIdList
+    itemIdList = removeItemsByGenderAndType(itemIdList, gender, clothingType)
     return {
-            "clothingCount":int(CLOTHING_COUNT),
             "clothingItems":[int(x) for x in itemIdList]
             }
 
@@ -213,7 +211,7 @@ async def loadItems():
                     tools.printMessage(e)
         logger.info("Finished loading items.")
     finally:
-        lock.release_write()
+       await lock.release_write()
     return
 
 def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
@@ -258,13 +256,23 @@ def postModelRanking(itemList: List[int]) -> List[int]:
     returnList = sorted(returnList, key=operator.itemgetter(1), reverse=True)
     return [element[0] for element in returnList]
 
-def getIndex(list: List[tuple[int, int]], element: int)->int:
-    for i, tupleItem in enumerate(list):
-        if tupleItem[0] == element:
-            return i
-    return None
+def removeItemsByGenderAndType(itemList: List[int], gender, clothingType:List[str])->List[int]:
+    genderInt = tools.genderToInt(gender)
+    if clothingType != None:
+        for index, item in enumerate(clothingType):
+            clothingType[index] = tools.typeToInt(item)
+    
+    returnList = []
+    for item in itemList:
+        values = getItemInformation(item)
+        if values != None:
+            queriedType = values[0]
+            queriedGender = values[1]
+            if queriedGender == genderInt and ((clothingType and queriedType in clothingType) or not clothingType):
+                returnList.append(item)
+    return returnList
 
-def getItem(itemList: List[int], gender, clothingType:List[str]=None):
+def getItem(itemList: List[int], gender:str, clothingType:List[str]=None):
     #Filters items
     genderInt = tools.genderToInt(gender)
     if clothingType != None:
