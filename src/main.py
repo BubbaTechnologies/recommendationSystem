@@ -8,7 +8,6 @@ import concurrent.futures
 import multiprocessing
 import uvicorn
 import logging
-import contextvars
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from cachetools import TTLCache
@@ -19,7 +18,7 @@ from models.ReaderWriterLock import ReaderWriterLock
 from sqlalchemy import create_engine, text
 
 from fastModels.likeRequest import LikeRequest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
@@ -45,7 +44,7 @@ WINDOW_SIZE = 50
 N_NEIGHBORS = 2
 PENALTY = 1000
 
-WRITE_ID = contextvars.ContextVar('name')
+WRITE_ID = 0
 
 oknn = OnlineKNeighborClassifier(WINDOW_SIZE, N_NEIGHBORS, PENALTY)
 
@@ -67,7 +66,6 @@ logger.addHandler(handler)
 async def startup():
     os.environ["MODIN_ENGINE"] = "dask"
     logger.info(f"Running with {MAX_THREADS} threads.")
-    WRITE_ID.set(0)
     await asyncio.gather(loadModel(), getRatings())
     logger.info("Finished initial offline ratings and loading model.")
     await asyncio.gather(loadItems()) 
@@ -81,6 +79,10 @@ async def shutdown():
 @app.get("/")
 async def index():
     return RedirectResponse(url="https://www.peachsconemarket.com")
+
+@app.get("/health")
+async def health():
+    return Response(content="", status_code=200)
 
 @app.get("/recommendationList")
 async def reccomendationList(userId: int, gender: str, clothingType:Union[str, None] = None):
@@ -155,17 +157,18 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
-    await lock.acquire_write(WRITE_ID.get())
+    await lock.acquire_write(WRITE_ID)
     incrementContext()
     try:
-        cache.pop(likeRequest.userId)
+        if likeRequest.userId in cache.keys():
+            cache.pop(likeRequest.userId)
         oknn.update(likeRequest.userId, likeRequest.clothingId, likeRequest.rating)
     finally:
         await lock.release_write()
-    return "",200
+    return Response(content="", status_code=200)
 
 async def getRatings():
-    await lock.acquire_write(WRITE_ID.get())
+    await lock.acquire_write(WRITE_ID)
     incrementContext()
     try:
         for gender in tools.getGenders().keys():
@@ -198,7 +201,7 @@ def processRow(row, dict):
     dict[key] = (clothingType, gender)
 
 async def loadItems():
-    await lock.acquire_write(WRITE_ID.get())
+    await lock.acquire_write(WRITE_ID)
     incrementContext()
     try:
         df = pd.read_sql(f"SELECT id, clothing_type, gender FROM ebdb.clothing", CONNECTION_STRING)
@@ -296,7 +299,9 @@ def getItemInformation(clothingId: int)->Union[Tuple[int, int], None]:
     return None
 
 def incrementContext():
-    WRITE_ID.set(WRITE_ID.get() + 1)
+    global WRITE_ID 
+    WRITE_ID += 1
+    WRITE_ID %= 10000000
 
 if __name__ == "__main__":
     uvicorn.run("main:app", port=os.getenv("FAST_PORT", 5000))
