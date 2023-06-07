@@ -1,4 +1,5 @@
 import datetime
+from typing import List
 
 __gendersDict = {
     "female":0,
@@ -35,10 +36,11 @@ def checkGender(string: str)->bool:
         return True
     return False
 
-def checkType(string: str)->bool:
-    if string.lower() in __typeDict.keys():
-        return True
-    return False
+def checkTypes(stringList: List[str])->bool:
+    for clothingType in stringList:
+        if clothingType.lower() in __typeDict.keys():
+            return True
+        return False
 
 def genderToInt(string: str)->int:
     return __gendersDict[string.lower()]

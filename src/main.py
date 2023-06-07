@@ -117,12 +117,12 @@ async def reccomendationList(userId: int, gender: str, clothingType:Union[str, N
             }
 
 @app.get("/recommendation")
-async def recommendation(userId: int, gender: str, clothingType:Union[str, None] = None):
+async def recommendation(userId: int, gender: str, clothingTypes:Union[str, None] = None):
     gender = gender.lower()
-    if clothingType != None:
-        clothingType = clothingType.replace("_"," ").lower().split(",")
+    if clothingTypes != None:
+        clothingTypes = clothingTypes.replace("_"," ").lower().split(",")
     
-    if not tools.checkGender(gender) or (clothingType and not tools.checkType(clothingType)):
+    if not tools.checkGender(gender) or (clothingTypes and not tools.checkTypes(clothingTypes)):
         raise HTTPException(status_code=400, detail="Invalid URL query parameters.")
 
     #Checks if in cache
@@ -147,9 +147,9 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
     if not inCacheKeys and inModel:
         itemIdList = postModelRanking(itemIdList)
     
-    returnItemId = getItem(itemIdList, gender, clothingType)
+    returnItemId = getItem(itemIdList, gender, clothingTypes)
     if not returnItemId:
-        logger.error(f"Could not reccomend item for userId: {userId}, gender: {gender}, clothingType: {clothingType}")
+        logger.error(f"Could not reccomend item for userId: {userId}, gender: {gender}, clothingType: {clothingTypes}")
         return HTTPException(status_code=204, detail="Could not recommend an item.")
     itemIdList.remove(returnItemId)
     cache[userId] = itemIdList
