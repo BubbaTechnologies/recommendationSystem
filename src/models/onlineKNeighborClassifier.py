@@ -1,11 +1,11 @@
 from sklearn.neighbors import NearestNeighbors
-from typing import List
+from typing import List, Union, Tuple
 import math
 
 MULTIPLIER_DENOMINATOR = 5
 
 class OnlineKNeighborClassifier:
-    def __init__(self, windowSize: int, nNeighbors: int, penalty: int):
+    def __init__(self, windowSize: int, nNeighbors: int, penalty: int, clothingDict):
         self.windowSize = windowSize
         self.nNeighbors = nNeighbors + 1
         #The larger the number the greater the penalty
@@ -13,6 +13,7 @@ class OnlineKNeighborClassifier:
         self.userProfiles:List[int] = []
         self.itemRatings = []
         self.nn = NearestNeighbors(n_neighbors=self.nNeighbors, metric=self.distance, algorithm="brute", n_jobs=-1)
+        self.clothingDict = clothingDict
 
     def update(self, userId: int, itemId: int, rating: float):
         userId = [userId]
@@ -33,7 +34,7 @@ class OnlineKNeighborClassifier:
 
         self.nn.fit(self.userProfiles)
 
-    def recommendItem(self, userId, itemAmount=25):
+    def recommendItem(self, userId, gender: int, clothingType: Union[List[int], None], itemAmount=30):
         userIndex = self.userProfiles.index([userId])
         if self.itemRatings[userIndex].keys() == 0:
             raise ValueError(f"No data on {userId}")
@@ -49,7 +50,9 @@ class OnlineKNeighborClassifier:
         userKeys = self.itemRatings[userIndex].keys()
         
         for neighbor in neighborIndices:
-            for item in self.itemRatings[neighbor].keys():
+            #Removes items that are not of the specified gender and clothingType
+            neighborItems = self.removeItemsByGenderAndType(self.itemRatings[neighbor].keys(), gender, clothingType)
+            for item in neighborItems:
                 if item not in userKeys:
                     if item in totalRatings.keys():
                         totalRatings[item] += self.itemRatings[neighbor][item]
@@ -79,3 +82,22 @@ class OnlineKNeighborClassifier:
                 totalRatingDistance += pow(multiplier * (self.itemRatings[user1Index][key] - self.itemRatings[user2Index][key]),2)
             multiplier -= 1/MULTIPLIER_DENOMINATOR
         return math.sqrt(totalRatingDistance)
+    
+    def removeItemsByGenderAndType(self, itemList: List[int], gender, clothingType:Union[List[int], None] = None)->List[int]:        
+        #TODO: REMOVE
+        print(self.clothingDict.keys())
+        #REMOVE
+        returnList = []
+        for item in itemList:
+            values = self.getItemInformation(item)
+            if values != None:
+                queriedType = values[0]
+                queriedGender = values[1]
+                if queriedGender == gender and ((clothingType and queriedType in clothingType) or not clothingType):
+                    returnList.append(item)
+        return returnList
+
+    def getItemInformation(self, clothingId: int)->Union[Tuple[int, int], None]:
+        if clothingId in self.clothingDict.keys():
+            return self.clothingDict[clothingId]
+        return None
