@@ -45,8 +45,16 @@ def checkTypes(stringList: List[str])->bool:
 def genderToInt(string: str)->int:
     return __gendersDict[string.lower()]
 
-def typeToInt(string: str)->int:
-    return __typeDict[string.lower()]
+def typeToInt(string: str)->List[int]:
+    stringList = string.split(",")
+    intList = []
+    try:
+        for x in stringList:
+            intList.append(__typeDict[x.lower()])
+    except:
+        return None
+    
+    return intList
 
 def getMessage(message: str) -> str:
     return datetime.datetime.now().strftime("%H:%M:%S") + ": " + message

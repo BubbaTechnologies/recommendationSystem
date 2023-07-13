@@ -51,15 +51,30 @@ async def health():
 
 @app.get("/recommendationList")
 async def reccomendationList(userId: int, gender: str, clothingType:Union[str, None] = None):
+    gender = tools.genderToInt(gender)
+    if clothingType != None:
+        clothingType = tools.typeToInt(clothingType)
     
+    return {
+        "clothingIds":[int(x) for x in service.getRecommendedList(userId, gender, clothingType)]
+    }
     
 @app.get("/recommendation")
-async def recommendation(userId: int, gender: str, clothingTypes:Union[str, None] = None):
-    pass
+async def recommendation(userId: int, gender: str, clothingType:Union[str, None] = None):  
+    gender = tools.genderToInt(gender)
+    if clothingType != None:
+        clothingType = tools.typeToInt(clothingType)
+
+    return {
+        "clothingId":int(service.getRecommendedList(userId, gender, clothingType)[0])
+    }
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
-    pass
+    if like.userId in cache.keys():
+        cache.pop(likeRequest.userId)
+    await service.postLike(likeRequest)
+    return Response(content="", status_code=200)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", port=os.getenv("FAST_PORT", 5000))
