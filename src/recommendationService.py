@@ -1,0 +1,201 @@
+import properties
+import modin.pandas as pd
+import models.tools as tools
+import random
+import pandas as rpd
+import operator
+import concurrent.futures
+import multiprocessing
+import modin.pandas as pd
+import models.tools as tools
+
+from models.readerWriterLock import ReaderWriterLock
+from fastModels.likeRequest import LikeRequest
+from models.onlineKNeighborClassifier import OnlineKNeighborClassifier
+from typing import Union, List
+from sqlalchemy import create_engine, text
+from distributed import Client
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
+class RecommendationService:
+    def __init__(self, logger):
+        self.logger = logger
+
+        self.topRatings = dict()
+        self.clothingDict = dict()
+
+        self.maxThreads = multiprocessing.cpu_count()
+        self.writeId = 0
+
+        self.scheduler = BackgroundScheduler()
+        self.engine = create_engine(properties.CONNECTION_STRING)
+        self.lock = ReaderWriterLock()
+
+        #Modin Paramertes
+        self.client = Client()
+
+        #oknn
+        self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, properties.PENALTY, self.clothingDict)
+
+
+    def recommendClothing(self, userId: int, gender: int, amount: int, clothingType:Union[List[int], None] = None)->List[int]:
+        recommendedList = self.getRecommendedList(userId, gender, clothingType)
+        returnList = []
+
+        for _ in range(amount):
+            choice = random.random()
+            if choice >= properties.RANDOM_CLOTHING_CHANCE and not len(recommendedList) == 0:
+                returnList.append(recommendedList.pop(0))
+            else:
+                returnList.append(self.getRandom(userId, gender, clothingType))
+        return returnList
+
+    def getRandom(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->int:
+        with self.engine.connect() as connection:
+            query = ""
+            if clothingType == None:                
+                query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
+            else:
+                query = "SELECT id FROM {0}.clothing WHERE gender={1} AND clothing_type={2}".format(properties.DATABASE_NAME, gender, clothingType)
+            df = rpd.read_sql(text(query), connection)
+            dfSize = df.shape[0]
+            loopCount = 0
+            while loopCount < properties.RANDOM_UPPER_BOUND:
+                loopCount += 1
+                randomIndex = random.randint(0,dfSize)
+                #Tries randomIndex of df
+                randomChoice = df[randomIndex]["id"]
+                if self.checkLike(userId, randomChoice):
+                    return randomChoice
+        return -1
+
+    def getRecommendedList(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->List[int]:
+        recommendedItems = []
+        if self.oknn.userInModel(userId):
+            #Gets recommendedList from oknn
+            recommendedItems = self.postModelRanking(self.oknn.recommendItem(userId, gender, clothingType))
+        else:
+            #Retrieves recommendations from offline model
+            recommendedItems = self.topRatings[gender]
+
+        #Checks for liked clothing
+        for i in recommendedItems:
+            if not self.checkLike(userId, recommendedItems[i]):
+                recommendedItems.remove(i)
+        return recommendedItems
+
+    def checkLike(self, userId, clothingId)->bool:
+        with self.engine.connect() as connection:
+            result = connection.execute(text("SELECT COUNT(*) FROM likes WHERE user_id={} AND id={}".format(userId, clothingId)))
+            if len(result) > 0 and result[0][0] > 0:
+                return True
+        return False
+
+    def postModelRanking(self, itemList: List[int]) -> List[int]:
+        df = None
+        with self.engine.connect() as connection:
+            df = rpd.read_sql(text("SELECT {0}.likes.clothing_id, {0}.likes.rating, date_created FROM {0}.likes INNER JOIN {0}.clothing ON {0}.clothing.id = {0}.likes.clothing_id WHERE clothing_id IN ({1})").format((properties.DATABASE_NAME, ','.join(map(str, itemList)))), connection)
+        uploadsDf = df.groupby("clothing_id")["date_created"]
+        averageRatingsSeries = df.groupby('clothing_id')['rating'].mean()
+
+        uploads = []
+        averageRatings = []
+
+        for item in itemList:
+            uploads.append((item, uploadsDf.get_group(item).iloc[0]))
+            averageRatings.append((item, averageRatingsSeries[item]))
+        
+        uploadsRank = sorted(uploads, key=operator.itemgetter(1), reverse=True)
+        averageRatingsRank = sorted(averageRatings, key=operator.itemgetter(1), reverse=True)
+
+        rankingsDict = {}
+        for i in range(len(uploadsRank)):
+            keys = rankingsDict.keys()
+            #Uploads adding
+            uploadRank = len(uploadsRank) - i
+            if uploadsRank[i][0] in keys:
+                rankingsDict[uploadsRank[i][0]] = (uploadRank, rankingsDict[uploadsRank[i][0]][1])
+            else:
+                rankingsDict[uploadsRank[i][0]] = (uploadRank, -1)
+
+            #averageRatings adding
+            averageRatingRank = len(averageRatingsRank) - i
+            if averageRatingsRank[i][0] in keys:
+                rankingsDict[averageRatingsRank[i][0]] = (rankingsDict[averageRatingsRank[i][0]][0], averageRatingRank)
+            else:
+                rankingsDict[averageRatingsRank[i][0]] = (-1, averageRatingRank)
+
+        returnList = []
+        for index, item in enumerate(itemList):
+            returnList.append((item, RecommendationService.totalRatingCalcuation(len(itemList) - index, rankingsDict[item][0], rankingsDict[item][1])))
+
+        returnList = sorted(returnList, key=operator.itemgetter(1), reverse=True)
+        return [element[0] for element in returnList]
+    
+    async def postLike(self, like: LikeRequest)->bool:
+        await self.lock.acquire_write(self.writeId)
+        self.incrementContext()
+        try:
+            self.oknn.update(like.userId, like.clothingId, like.rating)
+        finally:
+            await self.lock.release_write()
+
+    
+    def processRow(row, dict):
+        key = row["id"]
+        clothingType = row["clothing_type"]
+        gender = row["gender"]
+
+        dict[key] = (clothingType, gender)
+
+    def incrementContext(self):
+        self.writeId += 1
+        self.writeId %= 10000000
+
+    async def getRatings(self):
+        await self.lock.acquire_write(self.writeId)
+        self.incrementContext()
+        try:
+            for gender in tools.getGenders().values():
+                df = pd.read_sql("SELECT {0}.likes.id, clothing_id, rating, date_updated, date_created FROM {0}.likes INNER JOIN {0}.clothing ON {0}.clothing.id = {0}.likes.clothing_id WHERE {0}.likes.date_updated >= CURRENT_DATE - INTERVAL '{1}' DAY AND {0}.clothing.date_created >= CURRENT_DATE - INTERVAL '{2}' MONTH AND {0}.clothing.gender = {3}".format(properties.DATABASE_NAME, properties.DAYS_INTERVAL, properties.MONTHS_INTERVAL, gender), properties.CONNECTION_STRING)
+                if df.empty:
+                    continue
+                #Get all unique clothing items with likes
+                averageRatings = df.groupby('clothing_id')['rating'].mean()
+                averageRatingsDf = pd.DataFrame({"clothing_id":averageRatings.index, "average_rating": averageRatings.values}).sort_values(by=["average_rating"], ascending=False).head(properties.ITEM_COUNT)
+                rankings = []
+                for clothing_id in averageRatingsDf["clothing_id"]:
+                    rankings.append(clothing_id)
+                self.topRatings[gender] = rankings
+        finally:
+            await self.lock.release_write()
+        self.logger.info("Finished offline rankings.")
+        return
+
+    async def loadModel(self):
+        df = pd.read_sql("SELECT {0}.likes.user_id, {0}.likes.clothing_id, {0}.likes.rating FROM {0}.likes".format(properties.DATABASE_NAME), properties.CONNECTION_STRING)
+        for _,row in df.iterrows():
+            self.oknn.update(row["user_id"], row["clothing_id"], row["rating"])
+        return
+    
+    async def loadItems(self):
+        await self.lock.acquire_write(self.writeId)
+        self.incrementContext()
+        try:
+            df = pd.read_sql("SELECT id, clothing_type, gender FROM {0}.clothing".format(properties.DATABASE_NAME), properties.CONNECTION_STRING)
+            with concurrent.futures.ThreadPoolExecutor(max_workers = self.maxThreads) as executor:
+                futureToRow = {executor.submit(self.processRow, row, self.clothingDict): row for _, row in df.iterrows()}
+                for future in concurrent.futures.as_completed(futureToRow):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        tools.printMessage(e)
+            self.logger.info("Finished loading items.")
+        finally:
+            await self.lock.release_write()
+        return
+
+    @staticmethod
+    def totalRatingCalcuation(recommendationScore, newestUploadScore, averageRatingScore):
+        return 0.6 * (recommendationScore) + 0.25 * (newestUploadScore) + .15 * (averageRatingScore)
