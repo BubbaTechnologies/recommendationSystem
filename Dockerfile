@@ -8,12 +8,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src /app
 
-EXPOSE 80
+EXPOSE 403
 
-ARG SERVER_USERNAME
-ENV SERVER_USERNAME ${SERVER_USERNAME}
+ARG DB_USERNAME
+ENV DB_USERNAME ${DB_USERNAME}
 
-ARG SERVER_PASSWORD
-ENV SERVER_PASSWORD ${SERVER_PASSWORD}
+ARG DB_PASSWORD
+ENV DB_PASSWORD ${DB_PASSWORD}
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+ARG DB_ADDR_READER
+ENV DB_ADDR_READER ${DB_ADDR_READER}
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "403"]
