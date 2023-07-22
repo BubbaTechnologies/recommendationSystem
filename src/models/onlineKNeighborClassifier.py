@@ -5,11 +5,9 @@ import math
 MULTIPLIER_DENOMINATOR = 5
 
 class OnlineKNeighborClassifier:
-    def __init__(self, windowSize: int, nNeighbors: int, penalty: int, clothingDict):
+    def __init__(self, windowSize: int, nNeighbors: int, clothingDict):
         self.windowSize = windowSize
         self.nNeighbors = nNeighbors + 1
-        #The larger the number the greater the penalty
-        self.penalty = penalty
         self.userProfiles:List[int] = []
         self.itemRatings = []
         self.nn = NearestNeighbors(n_neighbors=self.nNeighbors, metric=self.distance, algorithm="brute", n_jobs=-1)
@@ -84,9 +82,6 @@ class OnlineKNeighborClassifier:
         return math.sqrt(totalRatingDistance)
     
     def removeItemsByGenderAndType(self, itemList: List[int], gender, clothingType:Union[List[int], None] = None)->List[int]:        
-        #TODO: REMOVE
-        print(self.clothingDict.keys())
-        #REMOVE
         returnList = []
         for item in itemList:
             values = self.getItemInformation(item)

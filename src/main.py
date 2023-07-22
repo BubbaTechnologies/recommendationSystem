@@ -54,9 +54,12 @@ async def reccomendationList(userId: int, gender: str, clothingType:Union[str, N
     gender = tools.genderToInt(gender)
     if clothingType != None:
         clothingType = tools.typeToInt(clothingType)
+
+    recList = [int(x) for x in service.getRecommendedList(userId, gender, clothingType)]
+    cache[userId] = recList
     
     return {
-        "clothingIds":[int(x) for x in service.getRecommendedList(userId, gender, clothingType)]
+        "clothingIds":recList
     }
     
 @app.get("/recommendation")
@@ -65,8 +68,11 @@ async def recommendation(userId: int, gender: str, clothingType:Union[str, None]
     if clothingType != None:
         clothingType = tools.typeToInt(clothingType)
 
+    recList = [int(x) for x in service.getRecommendedList(userId, gender, clothingType)]
+    cache[userId] = recList
+
     return {
-        "clothingId":int(service.getRecommendedList(userId, gender, clothingType)[0])
+        "clothingId":recList[0]
     }
 
 @app.post("/like")

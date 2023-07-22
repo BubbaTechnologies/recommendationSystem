@@ -36,7 +36,7 @@ class RecommendationService:
         self.client = Client()
 
         #oknn
-        self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, properties.PENALTY, self.clothingDict)
+        self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, self.clothingDict)
 
 
     def recommendClothing(self, userId: int, gender: int, amount: int, clothingType:Union[List[int], None] = None)->List[int]:
@@ -53,11 +53,11 @@ class RecommendationService:
 
     def getRandom(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->int:
         with self.engine.connect() as connection:
-            query = ""
-            if clothingType == None:                
-                query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
-            else:
-                query = "SELECT id FROM {0}.clothing WHERE gender={1} AND clothing_type={2}".format(properties.DATABASE_NAME, gender, clothingType)
+            query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
+            if clothingType != None:                
+                query += " AND clothing_type={2}".format(properties.DATABASE_NAME, gender, clothingType)
+            query += " AND date >= {0}".format(rpd.Timestamp.now() - rpd.DateOffset(weeks=4))
+
             df = rpd.read_sql(text(query), connection)
             dfSize = df.shape[0]
             loopCount = 0
@@ -141,8 +141,7 @@ class RecommendationService:
         finally:
             await self.lock.release_write()
 
-    
-    def processRow(row, dict):
+    def processRow(self, row, dict):
         key = row["id"]
         clothingType = row["clothing_type"]
         gender = row["gender"]
@@ -190,7 +189,7 @@ class RecommendationService:
                     try:
                         future.result()
                     except Exception as e:
-                        tools.printMessage(e)
+                        self.logger.info(e)
             self.logger.info("Finished loading items.")
         finally:
             await self.lock.release_write()
