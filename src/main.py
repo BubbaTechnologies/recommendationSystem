@@ -11,7 +11,7 @@ from cachetools import TTLCache
 from typing import Union, List
 
 from fastModels.likeRequest import LikeRequest
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, Response
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()

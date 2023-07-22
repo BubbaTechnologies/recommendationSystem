@@ -1,8 +1,8 @@
 import os
 import multiprocessing
 
-CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_ADDR_READER")}:{os.getenv("DB_PORT")}/sys'
 DATABASE_NAME = "sys"
+CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_ADDR_READER")}:{os.getenv("DB_PORT", 3306)}/{DATABASE_NAME}'
 
 #Online Learning Parameters
 WINDOW_SIZE = 50
