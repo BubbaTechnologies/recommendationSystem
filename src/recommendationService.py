@@ -9,6 +9,7 @@ import multiprocessing
 import modin.pandas as pd
 import models.tools as tools
 
+print("Here")
 from models.readerWriterLock import ReaderWriterLock
 from models.onlineKNeighborClassifier import OnlineKNeighborClassifier
 from fastModels.likeRequest import LikeRequest
