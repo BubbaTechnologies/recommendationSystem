@@ -2,9 +2,9 @@ FROM python:3.11
 
 WORKDIR /app
 
-RUN MKDIR ./models
-RUN MKDIR ./fastModels
-RUN MKDIR ./modin
+RUN mkdir ./models
+RUN mkdir ./fastModels
+RUN mkdir ./modin
 COPY src/ .
 
 RUN pip install --no-cache-dir -r requirements.txt
