@@ -2,12 +2,11 @@ FROM python:3.11
 
 WORKDIR /app
 
-RUN mkdir ./models
-RUN mkdir ./fastModels
-RUN mkdir ./modin
-COPY src/ .
+COPY src/requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src /app
 
 EXPOSE 80
 
