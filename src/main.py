@@ -50,26 +50,24 @@ async def health():
     return Response(content="", status_code=200)
 
 @app.get("/recommendationList")
-async def reccomendationList(userId: int, gender: str, clothingType:Union[str, None] = None):
-    gender = tools.genderToInt(gender)
-    if clothingType != None:
-        clothingType = tools.typeToInt(clothingType)
-
-    recList = [int(x) for x in service.getRecommendedList(userId, gender, clothingType)]
+async def reccomendationList(userId: int, gender: int, clothingType:Union[int, None] = None):
+    recList = [int(x) for x in service.recommendClothing(userId, gender, clothingType)]
     cache[userId] = recList
+
+    if len(recList) == 0:
+        return Response(content="No recommendation", status_code=503)
     
     return {
         "clothingIds":recList
     }
     
 @app.get("/recommendation")
-async def recommendation(userId: int, gender: str, clothingType:Union[str, None] = None):  
-    gender = tools.genderToInt(gender)
-    if clothingType != None:
-        clothingType = tools.typeToInt(clothingType)
-
-    recList = [int(x) for x in service.getRecommendedList(userId, gender, clothingType)]
+async def recommendation(userId: int, gender: int, clothingType:Union[int, None] = None):  
+    recList = [int(x) for x in service.recommendClothing(userId, gender, clothingType)]
     cache[userId] = recList
+
+    if len(recList) == 0:
+        return Response(content="No recommendation", status_code=503)
 
     return {
         "clothingId":recList[0]

@@ -39,13 +39,13 @@ class RecommendationService:
         self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, self.clothingDict)
 
 
-    def recommendClothing(self, userId: int, gender: int, amount: int, clothingType:Union[List[int], None] = None)->List[int]:
+    def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
         recommendedList = self.getRecommendedList(userId, gender, clothingType)
         returnList = []
 
-        for _ in range(amount):
+        for i in range(amount):
             choice = random.random()
-            if choice >= properties.RANDOM_CLOTHING_CHANCE and not len(recommendedList) == 0:
+            if choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) <= i:
                 returnList.append(recommendedList.pop(0))
             else:
                 returnList.append(self.getRandom(userId, gender, clothingType))
@@ -56,17 +56,21 @@ class RecommendationService:
             query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
             if clothingType != None:                
                 query += " AND clothing_type={2}".format(properties.DATABASE_NAME, gender, clothingType)
-            query += " AND date >= {0}".format(rpd.Timestamp.now() - rpd.DateOffset(weeks=4))
+            query += " AND date_created >= {0}".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
 
             df = rpd.read_sql(text(query), connection)
             dfSize = df.shape[0]
+            if dfSize == 0:
+                return -1
+
             loopCount = 0
             while loopCount < properties.RANDOM_UPPER_BOUND:
                 loopCount += 1
-                randomIndex = random.randint(0,dfSize)
+                randomIndex = random.randint(0, dfSize - 1)
+
                 #Tries randomIndex of df
-                randomChoice = df[randomIndex]["id"]
-                if self.checkLike(userId, randomChoice):
+                randomChoice = df.iloc[randomIndex]["id"]
+                if not self.checkLike(userId, randomChoice):
                     return randomChoice
         return -1
 
@@ -75,19 +79,21 @@ class RecommendationService:
         if self.oknn.userInModel(userId):
             #Gets recommendedList from oknn
             recommendedItems = self.postModelRanking(self.oknn.recommendItem(userId, gender, clothingType))
-        else:
-            #Retrieves recommendations from offline model
+        elif gender in self.topRatings.keys():
             recommendedItems = self.topRatings[gender]
+        else:
+            return []
 
         #Checks for liked clothing
         for i in recommendedItems:
-            if not self.checkLike(userId, recommendedItems[i]):
+            if not self.checkLike(userId, i):
                 recommendedItems.remove(i)
+    
         return recommendedItems
 
     def checkLike(self, userId, clothingId)->bool:
         with self.engine.connect() as connection:
-            result = connection.execute(text("SELECT COUNT(*) FROM likes WHERE user_id={} AND id={}".format(userId, clothingId)))
+            result = tuple(connection.execute(text("SELECT COUNT(*) FROM likes WHERE user_id={0} AND id={1}".format(userId, clothingId))))
             if len(result) > 0 and result[0][0] > 0:
                 return True
         return False
@@ -95,7 +101,7 @@ class RecommendationService:
     def postModelRanking(self, itemList: List[int]) -> List[int]:
         df = None
         with self.engine.connect() as connection:
-            df = rpd.read_sql(text("SELECT {0}.likes.clothing_id, {0}.likes.rating, date_created FROM {0}.likes INNER JOIN {0}.clothing ON {0}.clothing.id = {0}.likes.clothing_id WHERE clothing_id IN ({1})").format((properties.DATABASE_NAME, ','.join(map(str, itemList)))), connection)
+            df = rpd.read_sql(text("SELECT {0}.likes.clothing_id, {0}.likes.rating, date_created FROM {0}.likes INNER JOIN {0}.clothing ON {0}.clothing.id = {0}.likes.clothing_id WHERE clothing_id IN ({1})".format(properties.DATABASE_NAME, ','.join(map(str, itemList)))), connection)
         uploadsDf = df.groupby("clothing_id")["date_created"]
         averageRatingsSeries = df.groupby('clothing_id')['rating'].mean()
 
@@ -156,16 +162,22 @@ class RecommendationService:
         await self.lock.acquire_write(self.writeId)
         self.incrementContext()
         try:
-            for gender in tools.getGenders().values():
+            for gender in range(properties.GENDER_AMOUNT):
                 df = pd.read_sql("SELECT {0}.likes.id, clothing_id, rating, date_updated, date_created FROM {0}.likes INNER JOIN {0}.clothing ON {0}.clothing.id = {0}.likes.clothing_id WHERE {0}.likes.date_updated >= CURRENT_DATE - INTERVAL '{1}' DAY AND {0}.clothing.date_created >= CURRENT_DATE - INTERVAL '{2}' MONTH AND {0}.clothing.gender = {3}".format(properties.DATABASE_NAME, properties.DAYS_INTERVAL, properties.MONTHS_INTERVAL, gender), properties.CONNECTION_STRING)
+                rankings = []
                 if df.empty:
+                    for _ in range(properties.ITEM_COUNT):
+                        clothing_id = self.getRandom(-1, gender)
+                        if clothing_id >= 0:
+                            rankings.append(clothing_id)
+                    self.topRatings[gender] = rankings
                     continue
                 #Get all unique clothing items with likes
                 averageRatings = df.groupby('clothing_id')['rating'].mean()
                 averageRatingsDf = pd.DataFrame({"clothing_id":averageRatings.index, "average_rating": averageRatings.values}).sort_values(by=["average_rating"], ascending=False).head(properties.ITEM_COUNT)
-                rankings = []
                 for clothing_id in averageRatingsDf["clothing_id"]:
                     rankings.append(clothing_id)
+
                 self.topRatings[gender] = rankings
         finally:
             await self.lock.release_write()
