@@ -25,7 +25,7 @@ class RecommendationService:
         self.topRatings = dict()
         self.clothingDict = dict()
 
-        self.maxThreads = multiprocessing.cpu_count()
+        self.maxThreads = properties.MAX_THREADS
         self.writeId = 0
 
         self.scheduler = BackgroundScheduler()
@@ -45,7 +45,7 @@ class RecommendationService:
 
         for i in range(amount):
             choice = random.random()
-            if choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) <= i:
+            if choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1:
                 returnList.append(recommendedList.pop(0))
             else:
                 returnList.append(self.getRandom(userId, gender, clothingType))
