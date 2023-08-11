@@ -1,6 +1,7 @@
 from sklearn.neighbors import NearestNeighbors
 from typing import List, Union, Tuple
 import math
+import properties
 
 MULTIPLIER_DENOMINATOR = 5
 
@@ -88,7 +89,7 @@ class OnlineKNeighborClassifier:
             if values != None:
                 queriedType = values[0]
                 queriedGender = values[1]
-                if queriedGender == gender and ((clothingType and queriedType in clothingType) or not clothingType):
+                if queriedGender == gender and ((clothingType and queriedType in clothingType) or not queriedType in [properties.OTHER_INDEX]):
                     returnList.append(item)
         return returnList
 

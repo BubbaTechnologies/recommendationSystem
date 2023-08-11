@@ -6,7 +6,8 @@ CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.gete
 
 GENDER_AMOUNT = 5
 
-LIST_AMOUNT = 10
+LIST_AMOUNT = 100
+OTHER_INDEX = 10
 
 #Online Learning Parameters
 WINDOW_SIZE = 50
