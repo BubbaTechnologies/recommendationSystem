@@ -57,7 +57,7 @@ class RecommendationService:
             if clothingType != None:                
                 query += " AND clothing_type={0}".format(clothingType)
             else:
-                query += "AND NOT clothing_type={0}".format(properties.OTHER_INDEX)
+                query += " AND NOT clothing_type = {0}".format(properties.OTHER_INDEX)
             query += " AND date_created >= {0}".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
 
             df = rpd.read_sql(text(query), connection)
