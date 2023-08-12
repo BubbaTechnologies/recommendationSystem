@@ -4,10 +4,10 @@ import multiprocessing
 DATABASE_NAME = "sys"
 CONNECTION_STRING = f'mysql+mysqlconnector://{os.getenv("DB_USERNAME")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_ADDR_READER")}:{os.getenv("DB_PORT", 3306)}/{DATABASE_NAME}'
 
-GENDER_AMOUNT = 5
+LIST_AMOUNT = 25
 
-LIST_AMOUNT = 100
 OTHER_INDEX = 10
+GENDER_AMOUNT = 5
 
 #Online Learning Parameters
 WINDOW_SIZE = 50
