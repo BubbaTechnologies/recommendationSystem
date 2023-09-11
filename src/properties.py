@@ -23,4 +23,4 @@ RANDOM_CLOTHING_CHANCE = 0.4
 RANDOM_UPPER_BOUND = 100
 WEEKS_AGO = 3
 
-MAX_THREADS = multiprocessing.cpu_count() 
+MAX_THREADS = multiprocessing.cpu_count()
