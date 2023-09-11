@@ -31,7 +31,7 @@ class OnlineKNeighborClassifier:
         if len(self.itemRatings[userIndex].keys()) > self.windowSize:
             self.itemRatings[userIndex].pop(list(self.itemRatings[userIndex].keys())[0])
 
-        print(self.nn.fit(self.userProfiles))
+        self.nn.fit(self.userProfiles)
 
     def recommendItem(self, userId, gender: int, clothingType: Union[List[int], None], itemAmount=30):
         userIndex = self.userProfiles.index([userId])
@@ -68,6 +68,8 @@ class OnlineKNeighborClassifier:
             return False
 
     def distance(self, user1, user2):
+        print("User1:", user1)
+        print("User2:" , user2)
         totalRatingDistance = 0
         user1Index = self.userProfiles.index(user1)
         user2Index = self.userProfiles.index(user2)
