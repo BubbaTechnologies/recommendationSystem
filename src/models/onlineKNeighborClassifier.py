@@ -11,7 +11,7 @@ class OnlineKNeighborClassifier:
         self.nNeighbors = nNeighbors + 1
         self.userProfiles:List[int] = []
         self.itemRatings = []
-        self.nn = NearestNeighbors(n_neighbors=self.nNeighbors, metric=self.distance, algorithm="brute", n_jobs=-1)
+        self.nn = NearestNeighbors(n_neighbors = self.nNeighbors, metric=self.distance, algorithm="brute", n_jobs=-1)
         self.clothingDict = clothingDict
 
     def update(self, userId: int, itemId: int, rating: float):
@@ -31,7 +31,7 @@ class OnlineKNeighborClassifier:
         if len(self.itemRatings[userIndex].keys()) > self.windowSize:
             self.itemRatings[userIndex].pop(list(self.itemRatings[userIndex].keys())[0])
 
-        self.nn.fit(self.userProfiles)
+        print(self.nn.partial_fit(self.userProfiles))
 
     def recommendItem(self, userId, gender: int, clothingType: Union[List[int], None], itemAmount=30):
         userIndex = self.userProfiles.index([userId])
@@ -61,7 +61,7 @@ class OnlineKNeighborClassifier:
         sortedItems = sorted(totalRatings.items(), key=lambda x: x[1], reverse=True)
         return [itemId for itemId, _ in sortedItems[:itemAmount]]
     
-    def userInModel(self,userId:int) -> bool:
+    def userInModel(self, userId:int) -> bool:
         if [userId] in self.userProfiles and len(self.itemRatings[self.userProfiles.index([userId])].keys()) > 10:
             return True
         else:
