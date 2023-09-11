@@ -39,6 +39,7 @@ class OnlineKNeighborClassifier:
             raise ValueError(f"No data on {userId}")
         
         #Get neareast neighbors
+        print("Length User Profiles: ",len(self.userProfiles))
         _, neighborIndices = self.nn.kneighbors([self.userProfiles[userIndex]])
         neighborIndices = neighborIndices[0].tolist()
 
@@ -68,8 +69,6 @@ class OnlineKNeighborClassifier:
             return False
 
     def distance(self, user1, user2):
-        print("User1:", user1)
-        print("User2:" , user2)
         totalRatingDistance = 0
         user1Index = self.userProfiles.index(user1)
         user2Index = self.userProfiles.index(user2)
