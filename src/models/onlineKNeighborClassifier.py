@@ -40,6 +40,7 @@ class OnlineKNeighborClassifier:
         
         #Get neareast neighbors
         print("Length User Profiles: ",len(self.userProfiles))
+        print("kneighors param:", [self.userProfiles[userIndex]])
         _, neighborIndices = self.nn.kneighbors([self.userProfiles[userIndex]])
         neighborIndices = neighborIndices[0].tolist()
 
