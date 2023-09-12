@@ -39,10 +39,6 @@ class OnlineKNeighborClassifier:
             raise ValueError(f"No data on {userId}")
         
         #Get neareast neighbors
-        print(f"User Profiles:", self.userProfiles)
-        print(f"Item Ratings:", self.itemRatings)
-        print("Length User Profiles: ",len(self.userProfiles))
-        print("kneighors param:", [self.userProfiles[userIndex]])
         _, neighborIndices = self.nn.kneighbors([self.userProfiles[userIndex]])
         neighborIndices = neighborIndices[0].tolist()
 
