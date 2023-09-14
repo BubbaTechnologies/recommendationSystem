@@ -66,8 +66,12 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
     
 @app.get("/recommendation")
 async def recommendation(userId: int, gender: int, clothingType:Union[str, None] = None):  
-    recList = reccomendationList(userId, gender, clothingType)
-    return {"clothingId" : recList["clothingIds"][0]} if type(recList) == dict else recList
+    if userId in cache.keys():
+        recItem = cache[userId][0]
+        return {"clothingId" : recItem}
+    else:
+        recList = reccomendationList(userId, gender, clothingType)
+        return {"clothingId" : recList["clothingIds"][0]} if type(recList) == dict else recList
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
