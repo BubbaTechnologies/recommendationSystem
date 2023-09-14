@@ -80,7 +80,7 @@ async def like(likeRequest: LikeRequest):
     await service.postLike(likeRequest)
     return Response(content="", status_code=200)
 
-def getClothingTypeList(urlParam: str) -> List[int]:
+def getClothingTypeList(urlParam: str) -> tuple[int]:
     return [int(param) for param in urlParam.split(",")]
 
 if __name__ == "__main__":
