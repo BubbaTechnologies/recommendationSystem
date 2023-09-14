@@ -15,7 +15,7 @@ from fastapi import FastAPI, Response
 from fastapi.responses import RedirectResponse
 
 app = FastAPI()
-cache = TTLCache(maxsize=10000, ttl=30)
+cache = TTLCache(maxsize=10000, ttl=10)
 scheduler = BackgroundScheduler()
 logger = logging.getLogger(__name__)
 service = RecommendationService(logger)
@@ -55,7 +55,7 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
         clothingType = getClothingTypeList(clothingType)
 
     recList = [int(x) for x in service.recommendClothing(userId, gender, clothingType)]
-    cache[userId] = recList
+    cache[userId] = (gender, clothingType, recList)
 
     if len(recList) == 0:
         return Response(content="No recommendation", status_code=503)
@@ -66,7 +66,7 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
     
 @app.get("/recommendation")
 async def recommendation(userId: int, gender: int, clothingType:Union[str, None] = None):  
-    if userId in cache.keys():
+    if userId in cache.keys() and cache[userId][0] == gender and cache[userId][1] == clothingType:
         recItem = cache[userId][0]
         return {"clothingId" : recItem}
     else:
