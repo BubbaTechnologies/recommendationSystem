@@ -50,7 +50,10 @@ async def health():
     return Response(content="", status_code=200)
 
 @app.get("/recommendationList")
-async def reccomendationList(userId: int, gender: int, clothingType:Union[int, None] = None):
+async def reccomendationList(userId: int, gender: int, clothingType:Union[str, None] = None):
+    if clothingType:
+        clothingType = getClothingTypeList(clothingType)
+
     recList = [int(x) for x in service.recommendClothing(userId, gender, clothingType)]
     cache[userId] = recList
 
@@ -62,16 +65,9 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[int, N
     }
     
 @app.get("/recommendation")
-async def recommendation(userId: int, gender: int, clothingType:Union[int, None] = None):  
-    recList = [int(x) for x in service.recommendClothing(userId, gender, clothingType)]
-    cache[userId] = recList
-
-    if len(recList) == 0:
-        return Response(content="No recommendation", status_code=503)
-
-    return {
-        "clothingId":recList[0]
-    }
+async def recommendation(userId: int, gender: int, clothingType:Union[str, None] = None):  
+    recList = reccomendationList(userId, gender, clothingType)
+    return {"clothingId" : recList["clothingIds"][0]} if type(recList) == dict else recList
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
@@ -79,6 +75,9 @@ async def like(likeRequest: LikeRequest):
         cache.pop(likeRequest.userId)
     await service.postLike(likeRequest)
     return Response(content="", status_code=200)
+
+def getClothingTypeList(urlParam: str) -> List[int]:
+    return [int(param) for param in urlParam.split(",")]
 
 if __name__ == "__main__":
     uvicorn.run("main:app", port=os.getenv("FAST_PORT", 5000))
