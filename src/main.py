@@ -54,7 +54,7 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
     if clothingType:
         clothingType = getClothingTypeList(clothingType)
 
-    recList = [int(x) for x in service.recommendClothing(userId, gender, clothingType)]
+    recList = service.recommendClothing(userId, gender, clothingType)
     cache[userId] = (gender, clothingType, recList)
 
     if len(recList) == 0:

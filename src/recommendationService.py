@@ -55,7 +55,7 @@ class RecommendationService:
         with self.engine.connect() as connection:
             query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
             if clothingType != None:                
-                query += " AND clothing_type IN ({0})".format(str(clothingType)[1:-1])
+                query += " AND clothing_type IN ({0})".format(str(clothingType).replace("'","")[1:-1])
             else:
                 query += " AND NOT clothing_type IN ({0})".format(properties.OTHER_INDEX)
             query += " AND date_created >= {0}".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
