@@ -40,10 +40,10 @@ class RecommendationService:
 
 
     def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
-        recommendedList = self.getRecommendedList(userId, gender, clothingType)
+        recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
         returnList = []
 
-        for i in range(amount):
+        for _ in range(amount):
             choice = random.random()
             if choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1:
                 returnList.append(recommendedList.pop(0))
