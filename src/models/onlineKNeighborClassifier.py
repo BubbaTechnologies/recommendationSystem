@@ -23,6 +23,10 @@ class OnlineKNeighborClassifier:
             userIndex = len(self.userProfiles)
             self.userProfiles.append(userId)
             self.itemRatings.append({})
+
+        #Check if like existed before
+        if itemId in self.itemRatings[userIndex].keys():
+            self.itemRatings[userIndex].pop(itemId)
         
         #Insert new like
         self.itemRatings[userIndex][itemId] = rating

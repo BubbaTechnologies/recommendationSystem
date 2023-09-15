@@ -75,12 +75,12 @@ async def recommendation(userId: int, gender: int, clothingType:Union[str, None]
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
-    if like.userId in cache.keys():
+    if likeRequest.userId in cache.keys():
         cache.pop(likeRequest.userId)
     await service.postLike(likeRequest)
     return Response(content="", status_code=200)
 
-def getClothingTypeList(urlParam: str) -> tuple[int]:
+def getClothingTypeList(urlParam: str) -> list[int]:
     return [int(param) for param in urlParam.split(",")]
 
 if __name__ == "__main__":
