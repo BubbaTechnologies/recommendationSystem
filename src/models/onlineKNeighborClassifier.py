@@ -40,7 +40,7 @@ class OnlineKNeighborClassifier:
     def recommendItem(self, userId, gender: int, clothingType: Union[List[int], None], itemAmount=30):
         userIndex = self.userProfiles.index([userId])
         if self.itemRatings[userIndex].keys() == 0:
-            raise ValueError(f"No data on {userId}")
+            raise ValueError(f"No data on {userId}.")
         
         #Get neareast neighbors
         _, neighborIndices = self.nn.kneighbors([self.userProfiles[userIndex]])
@@ -86,6 +86,7 @@ class OnlineKNeighborClassifier:
             multiplier -= 1/MULTIPLIER_DENOMINATOR
         return math.sqrt(totalRatingDistance)
     
+    #Removes the items by gender and, if specified, by clothingType
     def removeItemsByGenderAndType(self, itemList: List[int], gender, clothingType:Union[List[int], None] = None)->List[int]:        
         returnList = []
         for item in itemList:
@@ -93,7 +94,8 @@ class OnlineKNeighborClassifier:
             if values != None:
                 queriedType = values[0]
                 queriedGender = values[1]
-                if queriedGender == gender and ((clothingType and queriedType in clothingType) or not queriedType in [properties.OTHER_INDEX]):
+                #If gender matches
+                if queriedGender == gender and ((clothingType and queriedType in clothingType) or (not clothingType and not queriedType in [properties.OTHER_INDEX])):
                     returnList.append(item)
         return returnList
 
