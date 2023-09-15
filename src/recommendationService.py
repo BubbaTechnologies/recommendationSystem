@@ -74,7 +74,7 @@ class RecommendationService:
                 #Tries randomIndex of df
                 randomChoice = df.iloc[randomIndex]["id"]
                 if not self.checkLike(userId, randomChoice):
-                    return randomChoice
+                    return int(randomChoice)
         return -1
 
     def getRecommendedList(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->List[numpy.int64]:
