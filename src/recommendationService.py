@@ -5,7 +5,7 @@ import random
 import pandas as rpd
 import operator
 import concurrent.futures
-import multiprocessing
+import numpy
 import modin.pandas as pd
 import models.tools as tools
 
@@ -40,6 +40,7 @@ class RecommendationService:
 
 
     def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
+        #Converts numpy.int64 to int list
         recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
         returnList = []
 
@@ -76,7 +77,7 @@ class RecommendationService:
                     return randomChoice
         return -1
 
-    def getRecommendedList(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->List[int]:
+    def getRecommendedList(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->List[numpy.int64]:
         recommendedItems = []
         if self.oknn.userInModel(userId):
             #Gets recommendedList from oknn

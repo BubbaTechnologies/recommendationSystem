@@ -55,7 +55,6 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
         clothingType = getClothingTypeList(clothingType)
 
     recList = service.recommendClothing(userId, gender, clothingType)
-    cache[userId] = (gender, clothingType, recList)
 
     if len(recList) == 0:
         return Response(content="No recommendation", status_code=503)
@@ -70,8 +69,18 @@ async def recommendation(userId: int, gender: int, clothingType:Union[str, None]
         recItem = cache[userId][0]
         return {"clothingId" : recItem}
     else:
-        recList = reccomendationList(userId, gender, clothingType)
-        return {"clothingId" : recList["clothingIds"][0]} if type(recList) == dict else recList
+        if clothingType:
+            clothingType = getClothingTypeList(clothingType)
+
+        recList = service.recommendClothing(userId, gender, clothingType)
+        if len(recList) == 0:
+            return Response(content="No recommendation", status_code=503)
+
+        returnItem = recList.pop(0)
+        cache[userId] = (gender, clothingType, recList)
+
+
+
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
