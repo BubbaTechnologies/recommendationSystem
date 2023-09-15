@@ -78,9 +78,9 @@ async def recommendation(userId: int, gender: int, clothingType:Union[str, None]
 
         returnItem = recList.pop(0)
         cache[userId] = (gender, clothingType, recList)
-
-
-
+        return {
+            "clothingId": returnItem
+        }
 
 @app.post("/like")
 async def like(likeRequest: LikeRequest):
