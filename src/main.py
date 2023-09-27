@@ -66,7 +66,7 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
 @app.get("/recommendation")
 async def recommendation(userId: int, gender: int, clothingType:Union[str, None] = None):  
     if userId in cache.keys() and cache[userId][0] == gender and cache[userId][1] == clothingType:
-        recItem = cache[userId][0]
+        recItem = cache[userId][3].pop(0)
         return {"clothingId" : recItem}
     else:
         if clothingType:
