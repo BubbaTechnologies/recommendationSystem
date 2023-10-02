@@ -56,7 +56,10 @@ async def reccomendationList(userId: int, gender: int, clothingType:Union[str, N
     if clothingType:
         clothingType = getClothingTypeList(clothingType)
 
-    recList = service.recommendClothing(userId, gender, clothingType)
+    blacklist = None
+    if userId in recommendCache.keys():
+        blacklist = recommendCache[userId]
+    recList = service.recommendClothing(userId, gender, clothingType, blacklist)
 
     if len(recList) == 0:
         return Response(content="No recommendation", status_code=503)
@@ -73,7 +76,11 @@ async def recommendation(userId: int, gender: int, clothingType:Union[str, None]
         if clothingType:
             clothingType = getClothingTypeList(clothingType)
 
-        recList = service.recommendClothing(userId, gender, clothingType)
+        blacklist = None
+        if userId in recommendCache.keys():
+            blacklist = recommendCache[userId]
+
+        recList = service.recommendClothing(userId, gender, clothingType, blacklist)
         if len(recList) == 0:
             return Response(content="No recommendation", status_code=503)
 

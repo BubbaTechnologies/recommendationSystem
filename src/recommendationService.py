@@ -39,17 +39,29 @@ class RecommendationService:
         self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, self.clothingDict)
 
 
-    def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
+    def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, blacklist:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
         #Converts numpy.int64 to int list
         recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
         returnList = []
 
-        for _ in range(amount):
+        i = 0
+        while i < amount:
             choice = random.random()
-            if choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1:
-                returnList.append(recommendedList.pop(0))
+            itemId = -1
+
+            #Gets recommended item id with randomness
+            if (choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1):
+                itemId = recommendedList.pop(0)
             else:
-                returnList.append(self.getRandom(userId, gender, clothingType))
+                itemId = self.getRandom(userId, gender, clothingType)
+
+            #Checks to see if item is in the blacklist
+            if blacklist and itemId in blacklist:
+                i -= 1
+                continue
+            else:
+                returnList.append(itemId)
+
         return returnList
 
     def getRandom(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->int:
