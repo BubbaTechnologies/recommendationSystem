@@ -44,8 +44,8 @@ class RecommendationService:
         recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
         returnList = []
 
-        i = 0
-        while i < amount:
+        currentAmount = 0
+        while currentAmount < amount:
             choice = random.random()
             itemId = -1
 
@@ -57,10 +57,11 @@ class RecommendationService:
 
             #Checks to see if item is in the blacklist
             if blacklist and itemId in blacklist:
-                i -= 1
                 continue
-            else:
-                returnList.append(itemId)
+            
+            #Appens to list
+            returnList.append(itemId)
+            currentAmount += 1
 
         return returnList
 
