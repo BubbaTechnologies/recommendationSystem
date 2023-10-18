@@ -58,8 +58,12 @@ class RecommendationService:
             #Checks to see if item is in the blacklist
             if blacklist and itemId in blacklist:
                 continue
+
+            #Checks to see if item is already in itemId list
+            if itemId in returnList:
+                continue
             
-            #Appens to list
+            #Appends to list
             returnList.append(itemId)
             currentAmount += 1
 
