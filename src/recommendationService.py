@@ -98,7 +98,13 @@ class RecommendationService:
         recommendedItems = []
         if self.oknn.userInModel(userId):
             #Gets recommendedList from oknn
-            recommendedItems = self.postModelRanking(self.oknn.recommendItem(userId, gender, clothingType))
+            oknnRecommendations = self.oknn.recommendItem(userId, gender, clothingType)
+            
+            if len(oknnRecommendations) == 0:
+                self.logger.error("Empty oknn list for {0} with parameters {1} gender and {2} clothingType.".format((userId, gender, clothingType)))
+                return []
+            
+            recommendedItems = self.postModelRanking(oknnRecommendations)
         elif gender in self.topRatings.keys():
             recommendedItems = self.topRatings[gender]
         else:
@@ -120,6 +126,7 @@ class RecommendationService:
 
     def postModelRanking(self, itemList: List[int]) -> List[int]:
         df = None
+
         with self.engine.connect() as connection:
             df = rpd.read_sql(text("SELECT {0}.likes.clothing_id, {0}.likes.rating, date_created FROM {0}.likes INNER JOIN {0}.clothing ON {0}.clothing.id = {0}.likes.clothing_id WHERE clothing_id IN ({1})".format(properties.DATABASE_NAME, ','.join(map(str, itemList)))), connection)
         uploadsDf = df.groupby("clothing_id")["date_created"]
