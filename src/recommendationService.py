@@ -101,7 +101,7 @@ class RecommendationService:
             oknnRecommendations = self.oknn.recommendItem(userId, gender, clothingType)
             
             if len(oknnRecommendations) == 0:
-                self.logger.error("Empty oknn list for {0} with parameters {1} gender and {2} clothingType.".format((userId, gender, clothingType)))
+                self.logger.error("Empty oknn list for {0} with parameters {1} gender and {2} clothingType.".format(userId, gender, clothingType))
                 return []
             
             recommendedItems = self.postModelRanking(oknnRecommendations)
