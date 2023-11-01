@@ -47,7 +47,8 @@ class OnlineKNeighborClassifier:
         neighborIndices = neighborIndices[0].tolist()
 
         #Removes same user from neighbors
-        neighborIndices.remove(userIndex)
+        if userIndex in neighborIndices:
+            neighborIndices.remove(userIndex)
 
         totalRatings = {}
         userKeys = self.itemRatings[userIndex].keys()
