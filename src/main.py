@@ -3,6 +3,7 @@ import asyncio
 import uvicorn
 import logging
 import models.tools as tools
+import properties
 
 from recommendationService import RecommendationService
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -75,6 +76,26 @@ async def like(likeRequest: LikeRequest):
         cache.pop(likeRequest.userId)
     await service.postLike(likeRequest)
     return Response(content="", status_code=200)
+
+@app.get("/previewList")
+async def previewList():
+    return {"clothingIds": [i for i in range(20)]}
+
+def getClothingTypeList(urlParam: str) -> list[int]:
+    return [int(param) for param in urlParam.split(",")]
+
+def recommendCacheItem(userId: int, items: [int], recommendCache):
+    if userId in recommendCache.keys():
+        #Get difference of recommendCache list size and items list size.
+        #Pop difference
+        itemsToPop = len(items)
+        if itemsToPop > properties.LIST_AMOUNT:
+            recommendCache[userId] = items[(itemsToPop):]
+        else:
+            recommendCache[userId] = recommendCache[userId][(itemsToPop):] + items
+    else:
+        #Add userId to cache
+        recommendCache[userId] = items
 
 if __name__ == "__main__":
     uvicorn.run("main:app", port=os.getenv("FAST_PORT", 5000))

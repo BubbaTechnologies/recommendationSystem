@@ -8,8 +8,8 @@ class OnlineKNeighborClassifier:
     def __init__(self, windowSize: int, nNeighbors: int, penalty: int, clothingDict):
         self.windowSize = windowSize
         self.nNeighbors = nNeighbors + 1
-        #The larger the number the greater the penalty
-        self.penalty = penalty
+        
+        #TODO
         self.userProfiles:List[int] = []
         self.itemRatings = []
         self.nn = NearestNeighbors(n_neighbors=self.nNeighbors, metric=self.distance, algorithm="brute", n_jobs=-1)
@@ -40,6 +40,7 @@ class OnlineKNeighborClassifier:
             raise ValueError(f"No data on {userId}")
         
         #Get neareast neighbors
+        print(self.userProfiles)
         _, neighborIndices = self.nn.kneighbors([self.userProfiles[userIndex]])
         neighborIndices = neighborIndices[0].tolist()
 

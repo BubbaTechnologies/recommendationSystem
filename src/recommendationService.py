@@ -36,11 +36,11 @@ class RecommendationService:
         self.client = Client()
 
         #oknn
-        self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, properties.PENALTY, self.clothingDict)
+        self.oknn = OnlineKNeighborClassifier(properties.WINDOW_SIZE, properties.N_NEIGHBORS, self.clothingDict)
 
-
-    def recommendClothing(self, userId: int, gender: int, amount: int, clothingType:Union[List[int], None] = None)->List[int]:
-        recommendedList = self.getRecommendedList(userId, gender, clothingType)
+    def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, blacklist:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
+        #Converts numpy.int64 to int list
+        recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
         returnList = []
 
         for _ in range(amount):
@@ -48,16 +48,50 @@ class RecommendationService:
             if choice >= properties.RANDOM_CLOTHING_CHANCE and not len(recommendedList) == 0:
                 returnList.append(recommendedList.pop(0))
             else:
-                returnList.append(self.getRandom(userId, gender, clothingType))
+                itemId = self.getRandom(userId, gender, clothingType)
+
+            #Checks to see if item is in the blacklist
+            if blacklist and itemId in blacklist:
+                continue
+
+            #Checks to see if item is already in itemId list
+            if itemId in returnList:
+                continue
+            
+            #Appends to list
+            returnList.append(itemId)
+            currentAmount += 1
+
+        return returnList
+    
+    """
+        - Description: 
+            - Iterates through itemIdList to check if clothing are from enabled store.
+        - Parameters:
+            - itemIdList: A list of integer item ids.
+        - Return:
+            - Returns a list of integers that represent valid items.
+    """
+    def filterByStore(self, itemIdList: List[int]) -> List[int]:
+        returnList = []
+
+        with self.engine.connect() as connection:
+            for id in itemIdList:
+                result = tuple(connection.execute(text("SELECT enabled FROM {0}.store s JOIN {0}.clothing c ON c.store_id = s.id WHERE c.id = {1};".format(properties.DATABASE_NAME, id))))
+                if result[0][0] == 1:
+                    returnList.append(id)
+
         return returnList
 
     def getRandom(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->int:
         with self.engine.connect() as connection:
-            query = ""
-            if clothingType == None:                
-                query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
+            query = "SELECT c.id FROM {0}.clothing c JOIN {0}.store s ON c.store_id = s.id WHERE c.gender={1}".format(properties.DATABASE_NAME, gender)
+            if clothingType != None:                
+                query += " AND c.clothing_type IN ({0})".format(str(clothingType).replace("'","")[1:-1])
             else:
-                query = "SELECT id FROM {0}.clothing WHERE gender={1} AND clothing_type={2}".format(properties.DATABASE_NAME, gender, clothingType)
+                query += " AND NOT c.clothing_type IN ({0})".format(properties.OTHER_INDEX)
+            query += " AND c.date_created >= {0} AND s.id = 1".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
+
             df = rpd.read_sql(text(query), connection)
             dfSize = df.shape[0]
             loopCount = 0
@@ -72,18 +106,26 @@ class RecommendationService:
 
     def getRecommendedList(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->List[int]:
         recommendedItems = []
+        print("Starting oknn")
         if self.oknn.userInModel(userId):
             #Gets recommendedList from oknn
-            recommendedItems = self.postModelRanking(self.oknn.recommendItem(userId, gender, clothingType))
-        else:
-            #Retrieves recommendations from offline model
+            print("before oknn")
+            oknnRecommendations = self.oknn.recommendItem(userId, gender, clothingType)
+            print("oknn rec:", oknnRecommendations)
+            if len(oknnRecommendations) == 0:
+                self.logger.error("Empty oknn list for {0} with parameters {1} gender and {2} clothingType.".format(userId, gender, clothingType))
+                return []
+            
+            recommendedItems = self.postModelRanking(oknnRecommendations)
+        elif gender in self.topRatings.keys():
             recommendedItems = self.topRatings[gender]
 
         #Checks for liked clothing
         for i in recommendedItems:
             if not self.checkLike(userId, recommendedItems[i]):
                 recommendedItems.remove(i)
-        return recommendedItems
+    
+        return self.filterByStore(recommendedItems)
 
     def checkLike(self, userId, clothingId)->bool:
         with self.engine.connect() as connection:
