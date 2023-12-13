@@ -97,6 +97,10 @@ async def like(likeRequest: LikeRequest):
     await service.postLike(likeRequest)
     return Response(content="", status_code=200)
 
+@app.get("/previewList")
+async def previewList():
+    return {"clothingIds": [i for i in range(20)]}
+
 def getClothingTypeList(urlParam: str) -> list[int]:
     return [int(param) for param in urlParam.split(",")]
 
