@@ -99,7 +99,7 @@ async def like(likeRequest: LikeRequest):
 
 @app.get("/previewList")
 async def previewList():
-    return {"clothingIds": [i for i in range(20)]}
+    return {"clothingIds": [i + 36438 for i in range(12)]}
 
 def getClothingTypeList(urlParam: str) -> list[int]:
     return [int(param) for param in urlParam.split(",")]
