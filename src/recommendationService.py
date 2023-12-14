@@ -71,12 +71,12 @@ class RecommendationService:
 
     def getRandom(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->int:
         with self.engine.connect() as connection:
-            query = "SELECT id FROM {0}.clothing WHERE gender={1}".format(properties.DATABASE_NAME, gender)
+            query = "SELECT c.id FROM {0}.clothing c JOIN {0}.store s ON c.store_id = s.id WHERE c.gender={1}".format(properties.DATABASE_NAME, gender)
             if clothingType != None:                
-                query += " AND clothing_type IN ({0})".format(str(clothingType).replace("'","")[1:-1])
+                query += " AND c.clothing_type IN ({0})".format(str(clothingType).replace("'","")[1:-1])
             else:
-                query += " AND NOT clothing_type IN ({0})".format(properties.OTHER_INDEX)
-            query += " AND date_created >= {0}".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
+                query += " AND NOT c.clothing_type IN ({0})".format(properties.OTHER_INDEX)
+            query += " AND c.date_created >= {0} AND s.enabled = 0".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
 
             df = rpd.read_sql(text(query), connection)
             dfSize = df.shape[0]
