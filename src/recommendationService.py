@@ -50,7 +50,7 @@ class RecommendationService:
             itemId = -1
 
             #Gets recommended item id with randomness
-            if (choice >= properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1):
+            if (choice > properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1):
                 itemId = recommendedList.pop(0)
             else:
                 itemId = self.getRandom(userId, gender, clothingType)
