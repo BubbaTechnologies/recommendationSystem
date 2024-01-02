@@ -41,7 +41,8 @@ class RecommendationService:
 
     def recommendClothing(self, userId: int, gender: int, clothingType:Union[List[int], None] = None, blacklist:Union[List[int], None] = None, amount:int = properties.LIST_AMOUNT)->List[int]:
         #Converts numpy.int64 to int list
-        recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
+        # recommendedList = [int(item) for item in self.getRecommendedList(userId, gender, clothingType)]
+        recommendedList = []
         returnList = []
 
         currentAmount = 0
@@ -213,7 +214,6 @@ class RecommendationService:
 
     async def loadModel(self):
         df = pd.read_sql("SELECT {0}.likes.user_id, {0}.likes.clothing_id, {0}.likes.rating FROM {0}.likes".format(properties.DATABASE_NAME), properties.CONNECTION_STRING)
-        print(df.size)
         for _,row in df.iterrows():
             self.oknn.update(row["user_id"], row["clothing_id"], row["rating"])
         return
