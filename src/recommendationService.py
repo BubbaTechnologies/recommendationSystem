@@ -54,15 +54,18 @@ class RecommendationService:
             if (choice > properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1):
                 itemId = recommendedList.pop(0)
             else:
-                self.logger.info("Fetching random.")
                 itemId = self.getRandom(userId, gender, clothingType)
+                self.logger.info("Randomly got " + itemId)
 
             #Checks to see if item is in the blacklist
             if blacklist and itemId in blacklist:
+                self.logger.info(itemId + " in blacklist")
                 continue
 
             #Checks to see if item is already in itemId list
             if itemId in returnList:
+                self.logger.info(itemId + " in returnList")
+                self.logger.info("returnList" + returnList)
                 continue
             
             #Appends to list
