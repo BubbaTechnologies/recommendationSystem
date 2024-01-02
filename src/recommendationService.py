@@ -213,6 +213,7 @@ class RecommendationService:
 
     async def loadModel(self):
         df = pd.read_sql("SELECT {0}.likes.user_id, {0}.likes.clothing_id, {0}.likes.rating FROM {0}.likes".format(properties.DATABASE_NAME), properties.CONNECTION_STRING)
+        print(df.size)
         for _,row in df.iterrows():
             self.oknn.update(row["user_id"], row["clothing_id"], row["rating"])
         return
