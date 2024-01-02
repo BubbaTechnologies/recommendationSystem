@@ -45,6 +45,7 @@ async def shutdown():
 
 @app.get("/")
 async def index():
+    logger.debug("Received request")
     return RedirectResponse(url="https://www.peachsconemarket.com")
 
 @app.get("/health")
