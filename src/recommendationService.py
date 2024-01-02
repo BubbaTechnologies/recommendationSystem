@@ -54,6 +54,7 @@ class RecommendationService:
             if (choice > properties.RANDOM_CLOTHING_CHANCE and len(recommendedList) > 1):
                 itemId = recommendedList.pop(0)
             else:
+                self.logger.info("Fetching random.")
                 itemId = self.getRandom(userId, gender, clothingType)
 
             #Checks to see if item is in the blacklist
