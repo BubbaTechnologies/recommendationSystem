@@ -81,7 +81,7 @@ class RecommendationService:
                 query += " AND c.clothing_type IN ({0})".format(str(clothingType).replace("'","")[1:-1])
             else:
                 query += " AND NOT c.clothing_type IN ({0})".format(properties.OTHER_INDEX)
-            query += " AND c.date_created >= {0} AND s.enabled = 1".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
+            query += " AND c.date_created >= {0} AND s.enabled = 1".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=8)).strftime('%Y-%m-%d'))
 
             df = rpd.read_sql(text(query), connection)
             dfSize = df.shape[0]
