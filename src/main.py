@@ -45,7 +45,7 @@ async def shutdown():
 
 @app.get("/")
 async def index():
-    return RedirectResponse(url="https://www.peachsconemarket.com")
+    return RedirectResponse(url="https://www.clothingcarou.com")
 
 @app.get("/health")
 async def health():

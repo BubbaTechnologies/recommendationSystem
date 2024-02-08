@@ -72,13 +72,16 @@ class RecommendationService:
 
         return returnList
 
+    """
+        - Description: Brute forces a random item of clothing not in the blacklist nor previously liked.
+    """
     def getRandom(self, userId: int, gender: int, clothingType:Union[List[int], None] = None)->int:
         with self.engine.connect() as connection:
             query = "SELECT c.id FROM {0}.clothing c JOIN {0}.store s ON c.store_id = s.id WHERE c.gender={1}".format(properties.DATABASE_NAME, gender)
             if clothingType != None:                
                 query += " AND c.clothing_type IN ({0})".format(str(clothingType).replace("'","")[1:-1])
             else:
-                query += " AND NOT c.clothing_type IN ({0})".format(properties.OTHER_INDEX)
+                query += " AND NOT c.clothing_type IN ({0})".format(str(properties.AVOID_INDEXS).replace("'","")[1:-1])
             query += " AND c.date_created >= {0} AND s.enabled = 1".format((rpd.Timestamp.now() - rpd.DateOffset(weeks=4)).strftime('%Y-%m-%d'))
 
             df = rpd.read_sql(text(query), connection)
@@ -127,6 +130,7 @@ class RecommendationService:
                 return True
         return False
 
+    # Average rating of store + newness
     def postModelRanking(self, itemList: List[int]) -> List[int]:
         df = None
 
