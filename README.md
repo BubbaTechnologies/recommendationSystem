@@ -26,7 +26,7 @@ Description: Gets items from 2 nearest neighbors, ranks them, and provides recco
 
 ## Routes
 ### / (GET)
-Description: Returns to www.peachsconemarket.com
+Description: Returns to www.clothingcarou.com
 ### /recommendation
 METHOD: GET
 Paremeters: userId (required), gender (required), clothingType (optional)
